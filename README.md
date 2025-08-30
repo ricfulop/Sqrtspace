@@ -76,6 +76,26 @@ Knobs:
 - Multivariate IoT/finance time-series with deep DAGs (fan-in 8–16): rolling stats, quantiles, detectors.
   - Typical: 30–100× vs thrashing baselines.
 
+#### Satcom examples (extreme-friendly)
+- Deep‑space Doppler/drift search (time–frequency cube)
+  - Pipeline: IQ → windowed FFT → coherent avg → noncoherent sum over drift tracks → peak pick.
+  - Why classic thrashes: large spectrogram cubes or many drift hypotheses blow RAM.
+  - √t fix: checkpoint at FFT/channelizer every k (k ≥ ceil(W/H)); small LRU for hot nodes.
+  - Example sizing: Fs 1–2 MHz; duration 10–30 min; W 65–131k; H 2–8k; 200–1000 drift tracks.
+  - Impact: 10–50× faster; 20–100× lower peak RSS.
+- Wideband channelizer + burst decode (multi‑channel scan)
+  - Pipeline: IQ → PFB channelizer (512–2048 bins) → CFO/timing → matched filter → soft demod → FEC.
+  - Why classic thrashes: per‑channel buffers kept live across windows.
+  - √t fix: checkpoint PFB outputs sparsely, recompute only when energy/sync triggers.
+  - Example sizing: Fs 2–10 MHz; W 32–64k; H 2–8k; sparse bursts.
+  - Impact: 10–40× faster; 10–50× memory cut.
+- Multi‑hypothesis demod search (CFO × symbol‑rate grid)
+  - Pipeline: IQ → CFO correction (grid) → resample (grid) → timing → demod → cost.
+  - Why classic thrashes: per‑hypothesis intermediates multiply memory.
+  - √t fix: share/recompute low‑level stages per window; checkpoint at resampler/FFT.
+  - Example sizing: CFO steps 100–200; symbol rates 3–10; W 64–128k; H small.
+  - Impact: 15–60× runtime vs paging; large RSS reduction.
+
 Conditions for 20–100× speedups
 - Working set ≫ RAM/LLC (barely-fit or spill).
 - Large windows with overlap (big W/H), deep/wide DAG.
