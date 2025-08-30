@@ -16,12 +16,14 @@ def main() -> None:
     demo.add_argument("--mode", choices=["auto", "classic", "sqrt"], default="auto")
 
     bench = sub.add_parser("bench", help="Run a benchmark")
-    bench.add_argument("which", choices=["audio", "logs"], help="Benchmark to run")
+    bench.add_argument("which", choices=["audio", "logs", "satcom"], help="Benchmark to run")
     bench.add_argument("--iters", type=int, default=1)
     bench.add_argument("--n", type=int, default=None, help="Dataset size (logs)")
     bench.add_argument("--win", type=int, default=None, help="Window size")
     bench.add_argument("--hop", type=int, default=None, help="Hop size")
     bench.add_argument("--extreme", action="store_true", help="Measure peak RSS via subprocess")
+    bench.add_argument("--preset", choices=["barely", "spill"], default=None, help="Preset dataset sizing")
+    bench.add_argument("--deep", action="store_true", help="Use deeper pipeline (larger intermediates)")
     bench.add_argument("--csv", type=str, default=None, help="Write CSV results to path")
 
     # internal helper (undocumented): run one eval and report JSON
@@ -124,9 +126,14 @@ def main() -> None:
         from .pipeline import SqrtSpacePipeline
 
         # parameters
-        n = args.n or 4_000_000
-        win = args.win or 16384
-        hop = args.hop or 4096
+        if args.preset == "barely":
+            n, win, hop = (20_000_000, 32768, 4096)
+        elif args.preset == "spill":
+            n, win, hop = (60_000_000, 65536, 4096)
+        else:
+            n = args.n or 4_000_000
+            win = args.win or 16384
+            hop = args.hop or 4096
         rng = np.random.default_rng(123)
         base = rng.lognormal(mean=2.0, sigma=0.6, size=n).astype(np.float32)
         input_blocks = max(64, int(n // hop) + 8)
@@ -134,27 +141,68 @@ def main() -> None:
         def build_pipe(mode: str, k: int, lru: int):
             p = SqrtSpacePipeline(window=win, hop=hop, input_buffer_blocks=input_blocks, mode=mode, checkpoint_every=k, lru_bytes=lru)
 
-            @p.stage("quantiles", inputs=["input"])
-            def quantiles(x: np.ndarray) -> np.ndarray:
-                p50 = np.percentile(x, 50, axis=1, method="nearest")
-                p95 = np.percentile(x, 95, axis=1, method="nearest")
-                return np.stack([p50, p95], axis=1).astype(np.float32)
+            if args.deep:
+                @p.stage("hist", inputs=["input"])
+                def hist(x: np.ndarray) -> np.ndarray:
+                    # Per-window histogram (bins=2048). Classic builds a large (windows x bins) array.
+                    bins = 2048
+                    # x shape: (num_win, W)
+                    outs = []
+                    for row in x:
+                        h, _ = np.histogram(row, bins=bins, range=(0.0, float(np.max(row) + 1.0)))
+                        outs.append(h.astype(np.float32))
+                    return np.stack(outs, axis=0)
 
-            @p.stage("alerts", inputs=["quantiles"])
+                @p.stage("quantiles", inputs=["input"])
+                def quantiles(x: np.ndarray) -> np.ndarray:
+                    p50 = np.percentile(x, 50, axis=1, method="nearest")
+                    p95 = np.percentile(x, 95, axis=1, method="nearest")
+                    return np.stack([p50, p95], axis=1).astype(np.float32)
+
+                last = "hist"
+            else:
+                @p.stage("quantiles", inputs=["input"])
+                def quantiles(x: np.ndarray) -> np.ndarray:
+                    p50 = np.percentile(x, 50, axis=1, method="nearest")
+                    p95 = np.percentile(x, 95, axis=1, method="nearest")
+                    return np.stack([p50, p95], axis=1).astype(np.float32)
+                last = "quantiles"
+
+            @p.stage("alerts", inputs=[last])
             def alerts(q: np.ndarray) -> np.ndarray:
-                thresh = 25.0
-                flag = (q[:, 1] > thresh).astype(np.int8)
+                # Different alerting depending on input shape
+                if q.shape[1] == 2:
+                    thresh = 25.0
+                    flag = (q[:, 1] > thresh).astype(np.int8)
+                    return flag[:, None]
+                # histogram input: use energy in top bins
+                top = np.partition(q, -8, axis=1)[:, -8:]
+                energy = top.sum(axis=1)
+                flag = (energy > (np.median(energy) * 2.0)).astype(np.int8)
                 return flag[:, None]
 
             return p
 
         # Extreme mode: run each mode in a fresh subprocess and capture peak RSS via resource.ru_maxrss
         if args.extreme:
-            import subprocess, sys, shlex
+            import subprocess, sys, shlex, platform, re
             def run_once(mode: str):
-                cmd = f"{shlex.quote(sys.executable)} -m sqrtspace_streams.cli eval-once logs --mode {mode} --n {n} --win {win} --hop {hop}"
-                out = subprocess.check_output(cmd, shell=True, env=os.environ)
-                return json.loads(out.decode('utf-8'))
+                # On macOS, use /usr/bin/time -l to get peak RSS reliably; on Linux, eval-once returns ru_maxrss
+                if platform.system() == "Darwin":
+                    inner = f"{shlex.quote(sys.executable)} -m sqrtspace_streams.cli eval-once logs --mode {mode} --n {n} --win {win} --hop {hop}"
+                    cmd = f"/usr/bin/time -l {inner}"
+                    proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=os.environ)
+                    out, err = proc.communicate()
+                    data = json.loads(out.decode('utf-8'))
+                    m = re.search(r"maximum resident set size\s*:\s*(\d+)", err.decode('utf-8'))
+                    if m:
+                        bytes_used = int(m.group(1))
+                        data["peak_rss_mb"] = bytes_used / (1024*1024)
+                    return data
+                else:
+                    cmd = f"{shlex.quote(sys.executable)} -m sqrtspace_streams.cli eval-once logs --mode {mode} --n {n} --win {win} --hop {hop}"
+                    out = subprocess.check_output(cmd, shell=True, env=os.environ)
+                    return json.loads(out.decode('utf-8'))
 
             res_c = run_once("classic")
             res_s = run_once("sqrt")
@@ -177,6 +225,7 @@ def main() -> None:
                 configs.append((k, lru_mb << 20))
 
         console.print("k  LRU(MB)   time_classic(s)   time_sqrt(s)   speedup(classic/sqrt)")
+        rows = ["k,lru_mb,time_classic_s,time_sqrt_s,speedup"]
         for (k, lru) in configs:
             pc = build_pipe("classic", k, lru)
             pc.push_samples(base)
@@ -192,6 +241,72 @@ def main() -> None:
 
             sp = (tc / ts) if ts > 0 else float('inf')
             console.print(f"{k:<3d}{(lru>>20):>8d}{tc:>16.3f}{ts:>15.3f}{sp:>20.2f}")
+            rows.append(f"{k},{lru>>20},{tc:.6f},{ts:.6f},{sp:.6f}")
+        if args.csv:
+            with open(args.csv, "w") as f:
+                f.write("\n".join(rows) + "\n")
+    elif args.cmd == "bench" and args.which == "satcom":
+        from time import perf_counter
+        import numpy as np
+        from .pipeline import SqrtSpacePipeline
+
+        # parameters
+        n = args.n or 4_000_000
+        win = args.win or 16384
+        hop = args.hop or 4096
+        input_blocks = max(64, int(n // hop) + 8)
+
+        # Synthetic IQ-like real signal with slow frequency drift
+        sr = 1_000_000
+        t = np.arange(n, dtype=np.float32)
+        drift_hz = 200.0  # total drift over signal
+        f0 = 100_000.0
+        f = f0 + (drift_hz * (t / n))
+        sig = np.sin(2 * np.pi * f * t / sr).astype(np.float32)
+
+        def build_pipe(mode: str, k: int, lru: int):
+            p = SqrtSpacePipeline(window=win, hop=hop, input_buffer_blocks=input_blocks, mode=mode, checkpoint_every=k, lru_bytes=lru)
+
+            @p.stage("fft", inputs=["input"])
+            def fft(x: np.ndarray) -> np.ndarray:
+                return np.abs(np.fft.rfft(x, axis=1))
+
+            @p.stage("energy", inputs=["fft"])
+            def energy(X: np.ndarray) -> np.ndarray:
+                # Sum of top-K bins to simulate track aggregation cost
+                K = 32
+                part = np.partition(X, -K, axis=1)[:, -K:]
+                s = part.sum(axis=1, keepdims=True)
+                return s.astype(np.float32)
+
+            return p
+
+        configs = []
+        for k in (8, 16, 32):
+            for lru_mb in (32, 64, 128):
+                configs.append((k, lru_mb << 20))
+
+        console.print("k  LRU(MB)   time_classic(s)   time_sqrt(s)   speedup(classic/sqrt)")
+        rows = ["k,lru_mb,time_classic_s,time_sqrt_s,speedup"]
+        for (k, lru) in configs:
+            pc = build_pipe("classic", k, lru)
+            pc.push_samples(sig)
+            t0 = perf_counter()
+            pc.evaluate("energy")
+            tc = perf_counter() - t0
+
+            ps = build_pipe("sqrt", k, lru)
+            ps.push_samples(sig)
+            t0 = perf_counter()
+            ps.evaluate("energy")
+            ts = perf_counter() - t0
+
+            sp = (tc / ts) if ts > 0 else float('inf')
+            console.print(f"{k:<3d}{(lru>>20):>8d}{tc:>16.3f}{ts:>15.3f}{sp:>20.2f}")
+            rows.append(f"{k},{lru>>20},{tc:.6f},{ts:.6f},{sp:.6f}")
+        if args.csv:
+            with open(args.csv, "w") as f:
+                f.write("\n".join(rows) + "\n")
     elif args.cmd == "eval-once" and args.which == "logs":
         # Internal helper: run one logs evaluation and print JSON with time and peak RSS
         import numpy as np

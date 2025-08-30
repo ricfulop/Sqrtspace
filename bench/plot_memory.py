@@ -52,3 +52,5 @@ if __name__ == "__main__":  # pragma: no cover
         print("Usage: python bench/plot_memory.py results_extreme.csv")
         sys.exit(1)
     plot_memory(sys.argv[1])
+
+

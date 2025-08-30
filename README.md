@@ -61,59 +61,9 @@ print(out.shape)
 Knobs:
 - **checkpoint_every (k)**: checkpoint interval (windows). For safety on overlapped windows, choose k ≥ the temporal dependency span implied by window/hop.
 - **lru_bytes**: cap for hot entries held in RAM.
-- **dependency_span**: derived as ceil(window / hop); auto mode ensures k ≥ dependency_span.
 
 ### Metrics
 - CLI prints process RSS and basic I/O counters after execution.
-
-### Where it shines (examples)
-- Logs/telemetry rollups on small VMs (8–16 GB): sliding p50/p95/p99 + features over 10^8–10^9 rows.
-  - Classic spills and thrashes; √t recomputes cheap parts and keeps a tiny live set.
-  - Typical: 10–60× faster; 10–50× lower peak RSS.
-- Long-form audio preprocessing (24–72 h, W≈65–131k, H≈2–8k): FFT → filterbank → MFCC/features → classifier.
-  - Classic swaps with large intermediates; √t bounds live memory.
-  - Typical: 8–40× faster; 10–80× lower peak RSS.
-- Multivariate IoT/finance time-series with deep DAGs (fan-in 8–16): rolling stats, quantiles, detectors.
-  - Typical: 30–100× vs thrashing baselines.
-
-#### Satcom examples (extreme-friendly)
-- Deep‑space Doppler/drift search (time–frequency cube)
-  - Pipeline: IQ → windowed FFT → coherent avg → noncoherent sum over drift tracks → peak pick.
-  - Why classic thrashes: large spectrogram cubes or many drift hypotheses blow RAM.
-  - √t fix: checkpoint at FFT/channelizer every k (k ≥ ceil(W/H)); small LRU for hot nodes.
-  - Example sizing: Fs 1–2 MHz; duration 10–30 min; W 65–131k; H 2–8k; 200–1000 drift tracks.
-  - Impact: 10–50× faster; 20–100× lower peak RSS.
-- Wideband channelizer + burst decode (multi‑channel scan)
-  - Pipeline: IQ → PFB channelizer (512–2048 bins) → CFO/timing → matched filter → soft demod → FEC.
-  - Why classic thrashes: per‑channel buffers kept live across windows.
-  - √t fix: checkpoint PFB outputs sparsely, recompute only when energy/sync triggers.
-  - Example sizing: Fs 2–10 MHz; W 32–64k; H 2–8k; sparse bursts.
-  - Impact: 10–40× faster; 10–50× memory cut.
-- Multi‑hypothesis demod search (CFO × symbol‑rate grid)
-  - Pipeline: IQ → CFO correction (grid) → resample (grid) → timing → demod → cost.
-  - Why classic thrashes: per‑hypothesis intermediates multiply memory.
-  - √t fix: share/recompute low‑level stages per window; checkpoint at resampler/FFT.
-  - Example sizing: CFO steps 100–200; symbol rates 3–10; W 64–128k; H small.
-  - Impact: 15–60× runtime vs paging; large RSS reduction.
-
-Conditions for 20–100× speedups
-- Working set ≫ RAM/LLC (barely-fit or spill).
-- Large windows with overlap (big W/H), deep/wide DAG.
-- Upstream stages moderately expensive (worth recomputing) but not dominating runtime.
-
-### Reproduce extreme improvements
-- Quick sweep (time-only):
-```bash
-sqrtspace bench logs
-```
-- Extreme (isolated process, captures peak RSS):
-```bash
-sqrtspace bench logs --extreme --n 20000000 --win 32768 --hop 4096 --csv results.csv
-```
-- Force smaller cache budget so auto picks sqrt earlier:
-```bash
-LLC_BYTES=33554432 sqrtspace bench logs --extreme --n 20000000 --win 32768 --hop 4096
-```
 
 ### Plotting
 - Time/speedup charts from CSV:
@@ -122,12 +72,39 @@ sqrtspace bench logs --csv logs_results.csv
 python bench/plot_bench.py logs_results.csv
 # outputs PNGs in bench_out/
 ```
-- Extreme memory/time charts:
+- Extreme peak memory/time charts:
 ```bash
 sqrtspace bench logs --extreme --n 20000000 --win 32768 --hop 4096 --csv extreme_logs.csv
 python bench/plot_memory.py extreme_logs.csv
 # outputs PNGs in bench_out/
 ```
+
+### Docker demo (resource-limited, apples-to-apples)
+- Build image:
+```bash
+make build
+```
+- Barely-fit time/speedup (RAD750/GR740-like caps):
+```bash
+make demo-barely
+```
+- Spill with peak memory/time:
+```bash
+make demo-spill
+```
+- Satcom deeper pipeline:
+```bash
+make satcom-demo
+```
+These use cgroup limits (RAM/CPU) and `LLC_BYTES` to mirror constrained OBCs. Classic will page on spill; sqrt keeps a tiny live set.
+
+### Target OBC profiles (what we emulate)
+- RAD750 (BAE Systems, PowerPC 750)
+  - Flown on: Mars Reconnaissance Orbiter (MRO), Mars Science Laboratory Curiosity, Mars 2020 Perseverance, Juno, Lunar Reconnaissance Orbiter (LRO), Kepler, Fermi (GLAST), others.
+  - Representative constraints: single core, a few hundred MB RAM, modest cache.
+- LEON/GR family (Cobham Gaisler/Microchip, SPARC)
+  - GR712 (LEON3‑FT) and GR740 (LEON4‑FT) across many ESA missions (e.g., Solar Orbiter, Sentinel/Copernicus, JUICE‑class avionics).
+  - Representative constraints: 1–4 cores, 256–512 MB RAM, modest cache.
 
 ### Dev
 - Run demo without installing (local): `PYTHONPATH=src python3 -m sqrtspace_streams.cli demo audio`
