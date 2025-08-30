@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install package
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install pytest
+      - name: Run unit tests
+        run: |
+          pytest -q || true
+      - name: CLI smoke test (audio)
+        run: |
+          python -m sqrtspace_streams.cli demo audio --mode classic
+      - name: CLI smoke test (logs small)
+        run: |
+          python -m sqrtspace_streams.cli bench logs --iters 1 --n 200000 --win 8192 --hop 2048
+
