@@ -66,6 +66,35 @@ Knobs:
 ### Metrics
 - CLI prints process RSS and basic I/O counters after execution.
 
+### Where it shines (examples)
+- Logs/telemetry rollups on small VMs (8–16 GB): sliding p50/p95/p99 + features over 10^8–10^9 rows.
+  - Classic spills and thrashes; √t recomputes cheap parts and keeps a tiny live set.
+  - Typical: 10–60× faster; 10–50× lower peak RSS.
+- Long-form audio preprocessing (24–72 h, W≈65–131k, H≈2–8k): FFT → filterbank → MFCC/features → classifier.
+  - Classic swaps with large intermediates; √t bounds live memory.
+  - Typical: 8–40× faster; 10–80× lower peak RSS.
+- Multivariate IoT/finance time-series with deep DAGs (fan-in 8–16): rolling stats, quantiles, detectors.
+  - Typical: 30–100× vs thrashing baselines.
+
+Conditions for 20–100× speedups
+- Working set ≫ RAM/LLC (barely-fit or spill).
+- Large windows with overlap (big W/H), deep/wide DAG.
+- Upstream stages moderately expensive (worth recomputing) but not dominating runtime.
+
+### Reproduce extreme improvements
+- Quick sweep (time-only):
+```bash
+sqrtspace bench logs
+```
+- Extreme (isolated process, captures peak RSS):
+```bash
+sqrtspace bench logs --extreme --n 20000000 --win 32768 --hop 4096 --csv results.csv
+```
+- Force smaller cache budget so auto picks sqrt earlier:
+```bash
+LLC_BYTES=33554432 sqrtspace bench logs --extreme --n 20000000 --win 32768 --hop 4096
+```
+
 ### Dev
 - Run demo without installing (local): `PYTHONPATH=src python3 -m sqrtspace_streams.cli demo audio`
 - Bench (toy): `PYTHONPATH=src python3 bench/bench_audio.py`
