@@ -1,0 +1,844 @@
+                           Tree Evaluation Is in Space 𝑂 (log 𝑛 · log log 𝑛)
+                                  James Cook                                                               Ian Mertz
+                                    Unaffiliated                                                    University of Warwick
+                                Toronto, Canada                                                   Coventry, United Kingdom
+                             falsifian@falsifian.org                                              ian.mertz@warwick.ac.uk
+
+ABSTRACT                                                                          1.1    Tree Evaluation and Composition
+The Tree Evaluation Problem (TreeEval) (Cook et al. 2009) is a cen-               The Tree Evaluation Problem [10], henceforth TreeEval, has emerged
+tral candidate for separating polynomial time (P) from logarithmic                in recent years as a candidate for a function which is computable in
+space (L) via composition. While space lower bounds of Ω(log2 𝑛)                  polynomial time (P = TIME(𝑛𝑂 (1) )) but not in logarithmic space
+are known for multiple restricted models, it was recently shown                   (L = SPACE(𝑂 (log 𝑛))). This would resolve one of the two funda-
+by Cook and Mertz (2020) that TreeEval can be solved in space                     mental questions of time and space, showing that TIME(𝑡) strictly
+𝑂 (log2 𝑛/log log 𝑛). Thus its status as a candidate hard problem for             contains SPACE(log 𝑡) in at least one important setting.
+L remains a mystery.                                                                 TreeEval is parameterized by alphabet size 𝑘 and height ℎ. The
+   Our main result is to improve the space complexity of TreeEval                 input is a rooted full binary tree of height ℎ, where each leaf is
+to 𝑂 (log 𝑛 · log log 𝑛), thus greatly strengthening the case that Tree           given a value in [𝑘] and each internal node is given a function from
+Evaluation is in fact in L.                                                       [𝑘] × [𝑘] to [𝑘] represented explicitly as a table of 𝑘 2 values. This
+   We show two consequences of these results. First, we show that                 defines a natural bottom-up way to evaluate the tree: inductively
+the KRW conjecture (Karchmer, Raz, and Wigderson 1995) implies                    from the leaves, the value of a node is the value its function takes
+L ⊈ NC1 ; this itself would have many implications, such as branch-               when given the labels from its two children as input. The output of
+ing programs not being efficiently simulable by formulas. Our sec-                a TreeEval𝑘,ℎ instance is the value of its root node.
+ond consequence is to increase our understanding of amortized                        A TreeEval𝑘,ℎ instance has size 2ℎ · poly(𝑘). The description
+branching programs, also known as catalytic branching programs;                   of the problem as given defines a polynomial time algorithm for
+we show that every function 𝑓 on 𝑛 bits can be computed by such                   TreeEval𝑘,ℎ : evaluate each node starting from the bottom and going
+a program of length poly(𝑛) and width 2𝑂 (𝑛) .                                    up, spending poly(𝑘) time at each of the 2ℎ nodes.
+                                                                                     But what about space? Evaluating the output node requires us
+CCS CONCEPTS                                                                      to have the values of both of its children, which themselves are
+• Theory of computation → Complexity theory and logic;                            obtained by computing their respective children, and so on. Now
+Complexity classes.                                                               imagine we have computed one of the children of the output node
+                                                                                  and are moving to the other. This seems to require remembering the
+KEYWORDS                                                                          value we have computed on one side, using log 𝑘 bits of memory,
+Tree Evaluation Problem, Catalytic Computation, KRW Conjecture,                   and then on the other side computing a whole new TreeEval𝑘,ℎ−1
+Branching Programs, Logspace, Composition Theorems                                instance, for which the same logic applies. This would inductively
+                                                                                  give a space Ω(ℎ log 𝑘) algorithm, while TreeEval𝑘,ℎ ∈ L would
+ACM Reference Format:                                                             mean giving an algorithm using only 𝑂 (ℎ + log 𝑘) bits of memory.
+James Cook and Ian Mertz. 2024. Tree Evaluation Is in Space 𝑂 (log 𝑛 ·               Thus if our intuition is correct, this should be a separating exam-
+log log 𝑛). In Proceedings of the 56th Annual ACM Symposium on Theory of          ple for L and P. This led Cook, McKenzie, Wehr, Braverman, and San-
+Computing (STOC ’24), June 24–28, 2024, Vancouver, BC, Canada. ACM, New
+                                                                                  thanam [10] to define TreeEval and conjecture that Ω(ℎ log 𝑘) space
+York, NY, USA, 11 pages. https://doi.org/10.1145/3618260.3649664
+                                                                                  is optimal. The conjecture was supported by multiple subsequent
+                                                                                  works, which showed it holds in restricted, but also non-uniform,
+1    INTRODUCTION                                                                 settings such as thrifty algorithms [10]—a TreeEval-specific restric-
+In complexity theory, many fundamental questions about time and                   tion wherein algorithms are not allowed to read “unnecessary” input
+space remain open, including their relationship to one another.                   bits, i.e. locations in the internal function tables that do not corre-
+We know that TIME(𝑡) is sandwiched between SPACE(log 𝑡) and                       spond to the true inputs to the node—and read-once [14] programs.
+SPACE(𝑡/log 𝑡) [18], and both containments are widely considered                  Later works extended both of these results to the non-deterministic
+to be strict, but we have made little progress in proving this fact               setting [20, 22].
+for any 𝑡.                                                                           This idea, known as composition or direct product theorems, is
+                                                                                  not only studied in the context of space. The KRW conjecture of
+                                                                                  Karchmer, Raz, and Wigderson [21] states that a similar logic holds
+                                                                                  for formula depth, with the upshot being that TreeEval separates P
+This work is licensed under a Creative Commons Attribution 4.0 Interna-           from the class of logarithmic depth formulas, known as NC1 . Even
+tional License.                                                                   more so than space, the study of the KRW conjecture has yielded
+STOC ’24, June 24–28, 2024, Vancouver, BC, Canada                                 many partial results (see e.g. [6, 13]) as well as encouraging useful
+© 2024 Copyright held by the owner/author(s).
+ACM ISBN 979-8-4007-0383-6/24/06                                                  parallel lines of work such as lifting theorems [16, 26].
+https://doi.org/10.1145/3618260.3649664
+
+
+
+
+                                                                           1268
+STOC ’24, June 24–28, 2024, Vancouver, BC, Canada                                                                                 James Cook and Ian Mertz
+
+
+   Thus the study of composition, and by extension TreeEval, is                   this paper. All models and statements will be formally defined in
+a very fruitful and well-founded line of study, and it is of great                Sections 6 and 7 respectively.
+interest as to when this logic holds and when it fails.
+                                                                                  1.4.1 The KRW Conjecture. First, we return to our brief discussion
+                                                                                  of the KRW conjecture, which we recall implies that TreeEval ∉
+1.2     Known Upper Bounds                                                        NC1 . [7, 8] gave a space upper bound of 𝑂 (log2 𝑛/log log 𝑛) for
+Nevertheless, the consensus and central composition logic of the                  TreeEval, asymptotically the same as the lower bound on formula
+space hardness of TreeEval has faced a challenge ever since its incep-            depth implied by the KRW conjecture; thus it was possible for the
+tion. Buhrman, Cleve, Koucký, Loff, and Speelman [4] defined a new                KRW conjecture and L ⊆ NC1 to both be true. This is no longer
+model of space-bounded computation called catalytic computing in                  possible, as Theorem 1 makes these two hypotheses incompatible.
+order to challenge a crucial assumption in our lower bound strategy:
+that the space used for remembering old values in the tree cannot                    Theorem 2. If the KRW Conjecture holds, then L ⊈ NC1 .
+be useful for computing new values. Building on the work of Bar-                     We have not formally stated the KRW conjecture, and refrain
+rington [1] and Ben-Or and Cleve [2], they show that the presence                 from doing so until Section 6; in fact one can define it in a variety
+of full memory can in fact assist in space-bounded computation in                 of ways, some stronger than others. We should note, however,
+a particular setting (unless L can compute log-depth threshold cir-               that Theorem 2 is quite robust with respect to choosing weaker
+cuits, which would imply many things which are widely disbelieved,                versions of the conjecture; any statement that implies TreeEval
+e.g. NL = L).                                                                     requires formula depth 𝜔 (log 𝑛) is sufficient for Theorem 2. As we
+   The catalytic computing model later received attention from a                  show, the strongest (and most widely studied) version implies that L
+variety of works [3, 5, 12, 17], but while it was in part motivated to            requires formulas of depth Ω(log2 𝑛/log log 𝑛), which nearly meets
+challenge the conjecture of [10], it did not immediately lead to any              the upper bound of 𝑂 (log2 𝑛) given by L ⊆ NC2 .
+results about TreeEval. However, after a period of quiet on both                     There are multiple important takeaways. First, the KRW con-
+the upper and lower bound fronts, their objection was validated                   jecture now implies a much sharper separation than P ≠ NC1 .
+by Cook and Mertz [7, 8], who showed that the Ω(ℎ log 𝑘) argu-                    Second, the KRW conjecture would give a superpolynomial size
+ment does not hold. They proved that for any 𝑘 and ℎ, TreeEval𝑘,ℎ                 separation between non-uniform formulas and uniform branching
+can be computed in space 𝑂 (ℎ log 𝑘/log ℎ), which translates to an                programs; no superpolynomial separation is known even when
+algorithm using space at most 𝑂 (log2 𝑛/log log 𝑛), shaving a loga-               the uniformity, or lack thereof, is the same for both classes. Third,
+rithmic factor off of the trivial algorithm using space 𝑂 (log2 𝑛).               proving formula lower bounds for TreeEval via KRW is formally
+   This is a far cry from showing TreeEval ∈ L, but both the state-               no easier than proving the same lower bounds for st-connectivity,
+ment and proof of the result undermine the central compositional                  even in the undirected case. And fourth, and most philosophically,
+logic behind the approach of [10] to separate L from P.                           continued belief in the KRW conjecture is a bet that the ability to
+                                                                                  handle composition is the factor that separates space and formulas.
+1.3     Main Result
+                                                                                  1.4.2 Catalytic Branching Programs. For our second result, we
+In this work we give an exponential improvement on the central
+                                                                                  consider the question of catalytic branching program size, or equiv-
+subroutine of [7, 8], which yields the following result.
+                                                                                  alently amortized branching program size.
+   Theorem 1. TreeEval can be computed in space 𝑂 (log 𝑛·log log 𝑛).                 Branching programs are a syntactic model used to analyze space
+                                                                                  in the non-uniform setting: we have a directed acyclic graph (DAG)
+   Compared to having only a logarithmic factor improvement                       with one source node and two sinks, one for each potential output
+given by [7, 8], we are now only a logarithmic factor improvement                 of the function 𝑓 ; computation proceeds by starting at the source
+away from showing TreeEval ∈ L.                                                   and, until we reach a sink labeled with the output 𝑓 (𝑥), at the
+   Our proof relies on a few fundamental properties of primitive                  current internal node we query a bit of 𝑥 and proceed down some
+roots of unity over finite fields. After defining the main preliminaries          adjacent edge according to the value read.
+in Section 2, we go over these properties in Section 3, with our main                Drawing a connection to a model of space known as catalytic
+proof of Theorem 1 in Section 4. We then improve and generalize                   computation, Girard, Koucký, and McKenzie [15] introduced a
+our main subroutine, plus a discussion of the implications of these               model known as 𝑚-catalytic branching programs, which essentially
+sharper results, in Section 5.                                                    asks whether we can find smaller branching programs for comput-
+   As observed in [7, 8], our techniques avoid the restrictions for               ing an arbitrary function 𝑓 if we only want to do so in an amortized
+which strong lower bounds are known. First, our algorithms avoid                  sense. We now consider a DAG with 𝑚 source nodes and 2𝑚 sink
+the read-once restriction by repeatedly recomputing values through-               nodes, one for each (source, output) pair, and require that restricting
+out the tree. Second, and perhaps more interesting, is that our algo-             attention to any individual source gives us a branching program
+rithm avoids the “thrifty” restriction by relying on every value in               for 𝑓 in the usual sense. Nevertheless, we do not require internal
+the table of any internal node, not only the one corresponding to                 nodes to be disjoint; the question becomes whether such a program
+the true inputs.                                                                  can have size much less than 𝑠𝑚, where 𝑠 is the size of the optimal
+                                                                                  single-source branching program for 𝑓 , and preferably with the
+1.4     Implications                                                              smallest value of 𝑚, i.e. the least amount of amortization, possible.
+Our improvement has immediate consequences outside of studying                       Potechin [24] showed that, given enough amortization, this is
+space upper bounds on TreeEval. We discuss two such results in                    possible in the strongest way: every function 𝑓 has 𝑚-catalytic
+
+
+
+
+                                                                           1269
+Tree Evaluation Is in Space 𝑂 (log 𝑛 · log log 𝑛)                                                                   STOC ’24, June 24–28, 2024, Vancouver, BC, Canada
+
+
+branching programs of size 𝑂 (𝑚𝑛), regardless of the complexity of                Definition 3. Let R be a ring and let 𝑓 be a function whose output
+𝑓 with respect to ordinary branching programs; the only catch is                  can be represented in R. A register program over R with 𝑠 registers
+                          𝑛
+that 𝑚 must be at least 22 . Reinterpreting and building on work of               cleanly computes 𝑓 into a register 𝑅𝑜 if for all possible 𝑥 1 . . . 𝑥𝑛 ∈
+Potechin [24] and an improvement by Robere and Zuiddam [27],                      {0, 1}𝑛 and 𝜏1 . . . 𝜏𝑠 ∈ R, if the program is run after initializing each
+Cook and Mertz [9] used the TreeEval argument of [7, 8] in the                    register 𝑅𝑖 = 𝜏𝑖 , then at the end of the execution
+non-uniform setting to show that the amount of amortization can                                                 𝑅𝑜 = 𝜏𝑜 + 𝑓 (𝑥 1 . . . 𝑥𝑛 )
+                     𝜖𝑛
+be reduced to 𝑚 = 22 for arbitrarily small constants 𝜖 > 0.
+   By improving (a generalization of) the central subroutine of [7, 8]                                              𝑅𝑖 = 𝜏𝑖      ∀𝑖 ≠ 𝑜
+in Theorem 1, we show that a slight sacrifice in the length gives a                  We will often want to undo the effect of a register program:
+near-optimal improvement in the amount of amortization.
+                                                                                  Definition 4. If 𝑃 is a register program that cleanly computes
+   Theorem 3. For every function 𝑓 on 𝑛 bits, 𝑓 has 𝑚-catalytic                   𝑓 (𝑥 1 . . . 𝑥𝑛 ), an inverse to 𝑃 is any program 𝑃 −1 which computes
+branching programs of the following size:                                         −𝑓 (𝑥 1 . . . 𝑥𝑛 ).
+    • size 𝑂 (𝑚 · 𝑛 2+𝜖 ) with 𝑚 = 𝑂 (2 (1+2/𝜖 )𝑛 )
+                                                                                      For example, one way to construct 𝑃 −1 is:
+    • size 𝑂 (𝑚 · 𝑛 3 /log2 𝑛) with 𝑚 = 𝑂 (2 (2+𝑜 (1) )𝑛 )
+                                                                                    1: 𝑅𝑜 ← −𝑅𝑜
+    • size 𝑂 (𝑚 · 22/𝜖 𝑛 2 ) with 𝑚 = 𝑂 (2 (2+𝜖 log 𝑛)𝑛 )
+                                                                                    2: 𝑃
+where 𝜖 ∈ (0, 1/2] in the first and third points can be made arbitrarily
+                                                                                    3: 𝑅𝑜 ← −𝑅𝑜
+small.
+                                                                                  Notice that running 𝑃 followed by 𝑃 −1 , or vice versa, leaves every
+   Focusing on the first point, Theorem 3 can be interpreted as say-              register including 𝑅𝑜 unchanged.
+ing that every function can be computed in amortized branching                        We justify our use of uniform register programs and clean com-
+program size just above 𝑛 2 , where the total size of the program is              putation to describe space-bounded algorithms with the following
+roughly 2𝑂 (𝑛) . By the same counting argument as ordinary branch-                connection:
+ing programs, we can hope for no better than amortized size 𝑂 (𝑛)—
+as achieved by [9, 24, 27]—and total size 𝑂 (2𝑛 /𝑛), meaning we are               Proposition 1. For 𝑛 ∈ N, let 𝑐 := 𝑐 (𝑛), 𝑠 := 𝑠 (𝑛), 𝑡 := 𝑡 (𝑛) ∈ N,
+not far from the tightest parameters possible.                                    and let R := R𝑛 be a ring. Let 𝑓 := 𝑓𝑛 be a Boolean function on 𝑛
+                                                                                  variables, and let 𝑃 := 𝑃𝑛 be a space 𝑐 uniform register program, which
+2     PRELIMINARIES                                                               𝑠 registers over R and which has 𝑡 instructions in total, that cleanly
+                                                                                  computes 𝑓 . Then 𝑓 can be computed in space 𝑂 (𝑐 + 𝑠 log |R| + log 𝑡).
+In this work the base of logarithms will always be 2: log 𝑥 := log2 𝑥.
+
+2.1      Register Programs                                                        2.2      Finite Fields
+                                                                                  In our programs, the ring R will always be a finite field. For a prime
+We will use register programs as a convenient abstraction for describ-
+                                                                                  number 𝑝 and positive integer 𝑎, we define F𝑝 𝑎 to be the unique
+ing space-bounded algorithms. Register programs were introduced
+                                                                                  (up to isomorphism) field with 𝑝 𝑎 elements.
+by Ben-Or and Cleve [2] based on work of Coppersmith and Gross-
+man [11] and explored in a number of follow-up works [4, 7, 9].                   Proposition 2. Every element 𝑥 ∈ F𝑝 𝑎 can be represented by a
+Definition 1. A register program over ring R consists of a collection             string of length 𝑂 (log |F𝑝 𝑎 |) = 𝑂 (𝑎 log 𝑝), and given any two such
+of memory locations 𝑅 = {𝑅1 . . . 𝑅𝑠 }, called registers, each of which           strings representing 𝑥, 𝑦 ∈ F𝑝 𝑎 , the representation of 𝑥 + 𝑦, 𝑥 × 𝑦, and
+can hold one element from R, and an ordered list of instructions in               𝑥/𝑦 over F𝑝 𝑎 can be computed in space 𝑂 (log |F𝑝 𝑎 |) = 𝑂 (𝑎 log 𝑝).
+the form of updates to some register 𝑅𝑖 based the current values of                   Proof. Fix an irreducible degree-𝑎 polynomial 𝑓 (𝑥) ∈ F𝑝 [𝑥],
+the registers and an input 𝑥 ∈ {0, 1}𝑛 .                                          so that F𝑝 𝑎 is isomorphic to F𝑝 [𝑥]/(𝑓 (𝑥)). Then each field element
+   We are primarily interested in register programs which can be                  is represented by a polynomial of degree less than 𝑎, which we can
+simulated by space-bounded algorithms:                                            store as an 𝑎-tuple of coefficients in F𝑝 . It is then straightforward
+                                                                                  to add, multiply and divide field elements in 𝑂 (𝑎 log 𝑝) space. All
+Definition 2. A family of register programs 𝑃 = {𝑃𝑛 }𝑛∈N is space
+                                                                                  this requires finding a suitable 𝑓 (𝑥) to begin with; this can also be
+𝑐 (𝑛) uniform if there is an algorithm using space 𝑐 (𝑛) which, given
+                                                                                  done in 𝑂 (𝑎 log 𝑝) space by exhaustive search.                      □
+(𝑡, 𝑥) and access to an array of registers, performs the 𝑡-th instruc-
+tion of 𝑃𝑛 on input 𝑥 ∈ {0, 1}𝑛 .                                                    We will sometimes need a smaller field inside a larger finite field:
+  Although it is common to restrict register programs to a small                  Proposition 3. For every prime number 𝑝 and positive integers 𝑎, 𝑏,
+vocabulary of instructions, in this work we make no restriction                   the field F𝑝 𝑎 is isomorphic to a subfield of F𝑝 𝑎𝑏 .
+beyond Definition 2. So, our programs may include any instruction
+                                                                                     Again it is computationally possible to find representations of
+                      𝑅𝑖 ← 𝑅𝑖 + 𝑔(𝑥 1 . . . 𝑥𝑛 , 𝑅1 . . . 𝑅𝑠 )                    F𝑝 𝑎 and F𝑝 𝑎𝑏 that agree1 ; thus we will treat F𝑝 𝑎 as a subset of F𝑝 𝑎𝑏
+as long as 𝑔 can be computed in space 𝑐 (𝑛).                                      when performing computations.
+   Following [4], rather than directly writing their output to a reg-             1 For example, one way to do that is to first find an irreducible polynomial 𝑓 (𝑥 ) ∈
+ister, our programs will add their output to a register while leaving             F𝑝 [𝑥 ] such that F𝑝 𝑎 is isomorphic to F𝑝 [𝑥 ]/(𝑓 (𝑥 ) ) , and then find 𝑔 (𝑦) ∈ F𝑝 𝑎 [𝑦 ]
+other registers unchanged, a process we call clean computation.                   such that 𝐹𝑝 𝑎𝑏 is isomorphic to F𝑝 𝑎 [𝑦 ]/(𝑔 (𝑦) ) , with elements of F𝑎 being repre-
+This will be useful for making our algorithms space-efficient.                    sented as constant (degree-0) polynomials in 𝐹𝑝 𝑎 [𝑦 ] .
+
+
+
+
+                                                                           1270
+STOC ’24, June 24–28, 2024, Vancouver, BC, Canada                                                                                           James Cook and Ian Mertz
+
+
+3    ROOTS OF UNITY                                                                   Theorem 4. Any TreeEval𝑘,ℎ instance can be computed in space
+Our work will use primitive roots of unity, and so we introduce them               𝑂 ((ℎ + log 𝑘) · log log 𝑘).
+and some of their properties before describing our algorithms. All                   We will build our algorithm from the ground up, first showing
+definitions and statements appearing in this section are standard                  how to compute each individual node.
+and have been used many times before in the literature, but will be
+crucial to the proof of our main results.                                          Lemma 7. Let K be a finite field, let 𝑚 = |K | − 1, and let 𝜔 be a
+                                                                                   primitive root of unity of order 𝑚 in K. Let 𝑑 < 𝑚, and let 𝜏𝑖 , 𝑥𝑖 be
+Definition 5. An element 𝜔 of a field K is a root of unity of order
+                                                                                   elements of K for 𝑖 ∈ [𝑑]. Then
+𝑚 if 𝜔𝑚 = 1. It is a primitive root of unity if additionally 𝜔 𝑘 ≠ 1 for
+every integer 0 < 𝑘 < 𝑚.                                                                                𝑚 Ö
+                                                                                                        Õ 𝑑                               Ö
+                                                                                                                                          𝑑
+                                                                                                                  (𝜔 𝑗 𝜏𝑖 + 𝑥𝑖 ) = −1 ·         𝑥𝑖
+  Our algorithm relies on some properties of primitive roots of                                         𝑗=1 𝑖=1                           𝑖=1
+unity—naturally, first we require that they exist, with the order we
+need:                                                                                  Before going into the proof of Lemma 7, we should stress why it
+                                                                                   is useful. Our overall goal is to compute the function 𝑓𝑢 at node 𝑢
+Proposition 4. Every finite field K has a primitive root of unity of               in our TreeEval instance while only using clean access to its inputs,
+order |K | − 1.                                                                    i.e. we only assume we can add some input bit 𝑥𝑖 to whatever 𝜏𝑖
+   This follows from the fact that the multiplicative group K × of a               already exists in the target register 𝑅𝑖 . Thus, when operating over
+finite field is always a cycle. For K = F𝑝 𝑎 , such a primitive root of            registers 𝑅𝑖 , we need to remove the contributions of the 𝜏𝑖 values
+unity can be found in 𝑂 (𝑎 log 𝑝) space through exhaustive search.                 themselves when computing 𝑓𝑢 . Lemma 7 accomplishes just this
+           Í
+   We will use, and for completeness prove, a generalization of the                for the AND function over 𝑑 inputs, albeit using 𝜏𝑖 multiplied by 𝑚
+fact that 𝑚        𝑗
+             𝑗=1 𝜔 = 0.
+                                                                                   different coefficients. After proving this lemma, we will move to
+                                                                                   the actual question, which is to compute an arbitrary 𝑓𝑢 .
+Proposition 5. Let K be a finite field, and let 𝜔 be a primitive root
+of unity of order 𝑚 in K. Then for all 0 < 𝑏 < 𝑚,                                     Proof. For a fixed 𝑗, expanding the product on the left hand
+                            Õ𝑚                                                     side gives
+                                𝜔 𝑗𝑏 = 0                                                                                                !
+                                    𝑗=1                                                     Ö 𝑑                    Õ Ö                     © Ö            ª
+                                                                                                (𝜔 𝑗 𝜏𝑖 + 𝑥𝑖 ) =                  𝜔 𝑗 𝜏𝑖 ­             𝑥𝑖 ®
+                       Õ
+                       𝑚
+                                                                                            𝑖=1                  𝑆 ⊆ [𝑑 ] 𝑖 ∈𝑆             «𝑖 ∈ [𝑑 ]\𝑆 ¬
+    Proof. Let 𝑠 =            𝜔 𝑗𝑏 . Then                                                                                                    !
+                        𝑗=1                                                                                        Õ                Ö          © Ö            ª
+                                                                                                                            𝑗 |𝑆 |
+                                                                                                                                          𝜏𝑖 ­             𝑥𝑖 ®
+              Õ
+              𝑚+1
+                                                                                                               =          𝜔
+     𝜔𝑏 𝑠 =         𝜔 𝑗𝑏 = 𝑠 + 𝜔 (𝑚+1)𝑏 − 𝜔 𝑏 = 𝑠 + 𝜔 𝑏 (𝜔𝑚𝑏 − 1) = 𝑠                                            𝑆 ⊆ [𝑑 ]           𝑖 ∈𝑆       «𝑖 ∈ [𝑑 ]\𝑆 ¬
+              𝑗=2                                                                  If we sum over all 𝑗 and switch the sums we get
+since 𝜔𝑚𝑏 = 1𝑏 = 1. So either 𝜔 𝑏 = 1 or 𝑠 = 0, but the former is                                     𝑚 Ö
+                                                                                                      Õ 𝑑
+ruled out because 𝜔 is a primitive root of unity and 0 < 𝑏 < 𝑚. □                                               (𝜔 𝑗 𝜏𝑖 + 𝑥𝑖 )
+                                                                                                      𝑗=1 𝑖=1
+Corollary 6. Let K be a finite field, let 𝑚 = |K | − 1, and let 𝜔 be a                                                              !
+primitive root of unity of order 𝑚 in K. Then for all 0 ≤ 𝑏 < 𝑚,                                      Õ
+                                                                                                      𝑚 Õ                       Ö © Ö            ª
+                                                                                                                       𝑗 |𝑆 |
+                                                                                                                               𝜏𝑖 ­           𝑥𝑖 ®
+                       Õ𝑚                                                                         =                𝜔
+                            𝜔 𝑗𝑏 = −1 · [𝑏 = 0]                                                     𝑗=1 𝑆 ⊆ [𝑑 ]          𝑖 ∈𝑆    «𝑖 ∈ [𝑑 ]\𝑆 ¬
+                                                                                                                                   !
+                                                                                                      Õ ©Õ                   Ö       © Ö
+                                                                                                                   𝑗 |𝑆 | ª                         ª
+                              𝑗=1                                                                               𝑚
+where [𝑏 = 0] is the indicator function which takes value 1 if 𝑏 = 0                              =          ­ 𝜔          ®      𝜏𝑖 ­            𝑥𝑖 ®
+and 0 otherwise.                                                                                    𝑆 ⊆ [𝑑 ] « 𝑗=1        ¬ 𝑖 ∈𝑆     «𝑖 ∈ [𝑑 ]\𝑆 ¬
+  Proof. The case of 𝑏 ≠ 0 is handled by Proposition 5. For 𝑏 = 0                  By Corollary 6 we have
+we have that over K,                                                                                       Õ
+                                                                                                           𝑚
+                   Õ𝑚         Õ
+                              𝑚                                                                                  𝜔 𝑗 · |𝑆 | = −1 · [|𝑆 | = 0]
+                      𝜔 𝑗0 =     1 = 𝑚 = −1                                                                𝑗=1
+                          𝑗=1             𝑗=1
+                                                                                   and thus the outer sum simplifies to the |𝑆 | = 0 term, which only
+where the last equality holds because 𝑚 = −1 in K.                      □          has 𝑆 = ∅:
+                                                                                                                        !
+4    TREE EVALUATION IN LOW SPACE                                                    Õ𝑚 Ö 𝑑                      Ö        © Ö            ª          Ö
+                                                                                               𝑗
+                                                                                             (𝜔 𝜏𝑖 + 𝑥𝑖 ) = −1 ·      𝜏𝑖 ­            𝑥𝑖 ® = −1 ·          𝑥𝑖 □
+                                                                                                                          «              ¬
+We now move on to the main goal of our paper, which is to prove                      𝑗=1 𝑖=1                     𝑖 ∈∅      𝑖 ∈ [𝑑 ]\∅             𝑖 ∈ [𝑑 ]
+Theorem 1. The following is our main result for TreeEval𝑘,ℎ , stated
+in terms of the two main parameters. It implies Theorem 1 for any                    Thus the next step is to move from individual products to poly-
+setting of 𝑘 and ℎ, and is stronger as 𝑘 gets smaller with respect to              nomials. This is accomplished by a simple corollary of Lemma 7.
+the total input size.
+
+
+
+
+                                                                            1271
+Tree Evaluation Is in Space 𝑂 (log 𝑛 · log log 𝑛)                                                                              STOC ’24, June 24–28, 2024, Vancouver, BC, Canada
+
+
+Lemma 8. Let K be a finite field, let 𝑚 = |K | − 1, and let 𝜔 be                             𝑦𝑖 ∈ {0, 1}, and similarly replacing [𝑧 = 𝛾] with 𝑒 (𝑧, 𝛾). This gives
+a primitive root of unity of order 𝑚 in K. Let 𝑝 : K 𝑛 → K be a                              the polynomial
+degree-𝑑 polynomial for some 𝑑 < 𝑚, and let 𝜏𝑖 , 𝑥𝑖 be elements of K                                            Õ
+for 𝑖 ∈ [𝑛]. Then                                                                                                      [𝑓𝑢 (𝛽, 𝛾) = 𝛼]𝑒 (𝑦, 𝛽)𝑒 (𝑧, 𝛾)           (1)
+          Õ
+          𝑚                                                                                                   𝛼,𝛽,𝛾 ∈ [𝑘 ] 3
+                                                                                                                 𝛼𝑖 =1
+                −1 · 𝑝 (𝜔 𝑗 𝜏1 + 𝑥 1, . . . , 𝜔 𝑗 𝜏𝑛 + 𝑥𝑛 ) = 𝑝 (𝑥 1 . . . 𝑥𝑛 )
+          𝑗=1
+                                                                                             We call this 𝑞𝑢,𝑖 (𝑦, 𝑧) and note that it is multilinear and thus has
+                                                                                             degree at most 2⌈log 𝑘⌉.
+   Proof. Writing 𝑝 as a sum of monomials we have
+                                    Õ    Ö
+                                                                                                Now given the conversion to polynomials 𝑞𝑢,𝑖 , we use Lemma 8
+                 𝑝 (𝑦1 . . . 𝑦𝑛 ) =   𝑐𝐼   𝑦𝑖                                                to compute the values 𝑞𝑢,𝑖 (𝑦, 𝑧) for inputs 𝑦, 𝑧 coming from 𝑃ℓ and
+                                                     𝐼 ⊆ [𝑛]      𝑖 ∈𝐼                       𝑃𝑟 respectively. Let 𝜔 be a primitive root of unity of order 𝑚 in K,
+                                                      |𝐼 | ≤𝑑                                and for all 𝑐 ∈ {ℓ, 𝑟 } and 𝑖 ∈ [⌈log 𝑘⌉], let 𝜏𝑐,𝑖 be the initial value of
+                                                                                             𝑅𝑐,𝑖 . Our goal will be to compute
+for some coefficients 𝑐 𝐼 ∈ K and formal variables 𝑦1 . . . 𝑦𝑛 . Then by
+substituting 𝜔 𝑗 𝜏𝑖 + 𝑥𝑖 for each 𝑦𝑖 and summing over all 𝑗, Lemma 7                                            Õ
+                                                                                                                𝑚
+gives                                                                                          𝑅𝑢,𝑖 ← 𝑅𝑢,𝑖 +          −1 · 𝑞𝑢,𝑖 (𝜔 𝑗 𝜏ℓ + 𝑦, 𝜏𝑟 + 𝑧)        ∀𝑖 ∈ [⌈log 𝑘⌉]
+                       Õ
+                       𝑚                                                                                        𝑗=1
+                             −1 · 𝑝 (𝜔 𝑗 𝜏1 + 𝑥 1, . . . , 𝜔 𝑗 𝜏𝑛 + 𝑥𝑛 )
+                       𝑗=1                                                                   where 𝜔 𝑗 𝜏ℓ + 𝑦 and 𝜔 𝑗 𝜏𝑟 + 𝑧 are shorthand for ⌈log 𝑘⌉ values each.
+                       Õ𝑚            Õ              Ö                                        We do so using the following program 𝑃𝑢 :
+                   =         −1 ·              𝑐𝐼          (𝜔 𝑗 𝜏𝑖 + 𝑥𝑖 )                     1: for 𝑗 = 1 . . . 𝑚 do
+                       𝑗=1          𝐼 ⊆ [𝑛]         𝑖 ∈𝐼                                      2:    for 𝑐 ∈ {ℓ, 𝑟 }, 𝑖 = 1 . . . ⌈log 𝑘⌉ do
+                                     |𝐼 | ≤𝑑                                                  3:          𝑅𝑐,𝑖 ← 𝜔 𝑗 · 𝑅𝑐,𝑖
+                        Õ           ©     ÕÖ        𝑚
+                                                                  ª                           4:    𝑃ℓ , 𝑃𝑟
+                   =          𝑐 𝐼 · ­−1 ·          (𝜔 𝑗 𝜏𝑖 + 𝑥𝑖 ) ®                           5:    for 𝑖 = 1 . . . ⌈log 𝑘⌉ do
+                     𝐼 ⊆ [𝑛]        «     𝑗=1 𝑖 ∈𝐼                ¬                           6:          𝑅𝑢,𝑖 ← 𝑅𝑢,𝑖 − 𝑞𝑢,𝑖 (𝑅ℓ , 𝑅𝑟 )
+                       Õ          Ö
+                      |𝐼 | ≤𝑑
+                                                                                              7:    𝑃ℓ−1, 𝑃𝑟−1
+                   =          𝑐𝐼      𝑥𝑖                                                      8:    for 𝑐 ∈ {ℓ, 𝑟 }, 𝑖 = 1 . . . ⌈log 𝑘⌉ do
+                       𝐼 ⊆ [𝑛]      𝑖 ∈𝐼
+                        |𝐼 | ≤𝑑
+                                                                                              9:          𝑅𝑐,𝑖 ← 𝜔 − 𝑗 · 𝑅𝑐,𝑖
+                                                                                                We use for . . . do as shorthand for concatenating several copies
+and the last line is 𝑝 (𝑥 1 . . . 𝑥𝑛 ) by definition.                             □
+                                                                                             of a block of instructions with varying parameters. So, for example,
+                                                                                             lines 2–3 describe a sequence of 2⌈log 𝑘⌉ register program instruc-
+  Finally, we show how to use Lemma 8 in a register program to
+                                                                                             tions with a different pair (𝑐, 𝑖) associated to each, and the block
+compute our polynomial 𝑓𝑢 in the way we described above, given
+                                                                                             from lines 2–9 is repeated 𝑚 times with different values of 𝑗. Lines
+an appropriate choice of K.
+                                                                                             4 and 7 are shorthand for inserting complete copies of the register
+Lemma 9. Let K be a finite field such that 𝑚 := |K | − 1 > 2⌈log 𝑘⌉.                         programs 𝑃ℓ , 𝑃𝑟 , 𝑃ℓ−1, 𝑃𝑟−1 .
+Let 𝑃ℓ , 𝑃𝑟 be register programs which cleanly compute values 𝑣 ℓ , 𝑣𝑟 ∈                        On the other hand, each of lines 3, 6, and 9 represents a single
+{0, 1} ⌈log 𝑘 ⌉ into registers 𝑅ℓ , 𝑅𝑟 ∈ K ⌈log 𝑘 ⌉ , respectively, and let                  instruction (to be repeated several times due to the surrounding
+𝑃ℓ−1, 𝑃𝑟−1 be their inverses. Let 𝑓𝑢 : {0, 1}2⌈log 𝑘 ⌉ → {0, 1} ⌈log 𝑘 ⌉ be                  for loops), even though computing line 6 involves poly(𝑘) field
+the function at node 𝑢 in our TreeEval𝑘,ℎ instance.                                          arithmetic operations. Recall from Section 2 that a single instruction
+    Then there exists a register program 𝑃𝑢 which cleanly computes                           of a space 𝑐 uniform register program may compute any function
+𝑓𝑢 (𝑣 ℓ , 𝑣𝑟 ) ∈ {0, 1} ⌈log 𝑘 ⌉ into registers 𝑅𝑢 ∈ K ⌈log 𝑘 ⌉ , as well as an              computable in space 𝑐. See the end of the proof of Theorem 4 for
+inverse program 𝑃𝑢−1 . Both 𝑃𝑢 and 𝑃𝑢−1 make 𝑚 recursive calls each                          an account of the space 𝑐 required for these instructions.
+to 𝑃ℓ , 𝑃𝑟 , 𝑃ℓ−1 , and 𝑃𝑟−1 , and use 5𝑚⌈log 𝑘⌉ other basic instructions.                      To make the inverse program 𝑃𝑢−1 , replace the − on line 6 with
+                                                                                             +.
+   Proof. Our goal will be to use Lemma 8 in order to compute the                               We now analyze the correctness of the program. At the start of
+output of 𝑓𝑢 using only clean access to the values of its children.                          an iteration of the loop, we have 𝑅𝑐,𝑖 = 𝜏𝑐,𝑖 , and since lines 7–9 are
+In order to do this, we first need to convert 𝑓𝑢 into a tuple of                             the inverse of lines 3–4, this invariant is maintained at the end of
+polynomials. We can write the 𝑖-th bit of 𝑓𝑢 as:                                             the iteration; this additionally implies that 𝑅𝑐,𝑖 = 𝜏𝑐,𝑖 at the end of
+                   Õ                                                                         the program as required. Going into lines 5 and 6, we have that
+    (𝑓𝑢 (𝑦, 𝑧))𝑖 =        [𝛼𝑖 = 1] [𝑓𝑢 (𝛽, 𝛾) = 𝛼] [𝑦 = 𝛽] [𝑧 = 𝛾]
+                       𝛼,𝛽,𝛾 ∈ [𝑘 ] 3                                                                   𝑅𝑐,𝑖 = 𝜔 𝑗 𝜏𝑐,𝑖 + 𝑣𝑐,𝑖         ∀𝑐 ∈ {ℓ, 𝑟 }, 𝑖 ∈ [⌈log 𝑘⌉]
+
+We will turn this into a polynomial whose 2⌈log 𝑘⌉ variables are the                         where 𝑚 is larger than the degree of each 𝑞𝑢,𝑖 , and so correctness
+bits of 𝑦 and 𝑧 by replacing [𝑦 = 𝛽] with the polynomial 𝑒 (𝑦, 𝛽) =
+Î ⌈log 𝑘 ⌉
+                                                                                             follows from Lemma 8 and the fact that 𝑞𝑢,𝑖 (𝑦, 𝑧) = (𝑓𝑢 (𝑦, 𝑧))𝑖 when
+  𝑖=1      (1 − 𝑦𝑖 + (2𝑦𝑖 − 1)𝛽𝑖 ), which equals [𝑦 = 𝛽] when all                            all 𝑦𝑖 , 𝑧𝑖 ∈ {0, 1}.                                                □
+
+
+
+
+                                                                                      1272
+STOC ’24, June 24–28, 2024, Vancouver, BC, Canada                                                                                                         James Cook and Ian Mertz
+
+
+   The above program can be made more efficient, as we will show                            with simple arithmetic; since the length of the program is at most
+in Lemma 10 in Section 5, but even as stated Lemma 9 is sufficient                          (4|K |)ℎ ⌈log 𝑘⌉, this requires space 𝑂 (ℎ log |K | + log 𝑘).3
+to serve as our main TreeEval subroutine.                                                      Finally the instruction itself must be performed. Lines 3 and 9 can
+                                                                                            be performed in space 𝑂 (log 𝑘 + log |K |), because field operations
+   Proof of Theorem 4. We will show that our TreeEval𝑘,ℎ in-                                can be performed in space 𝑂 (log |K |) (Proposition 2), and log 𝑗 ≤
+stance can be cleanly computed by a register program of length                              log 𝑘 bits suffice to create a loop to compute 𝜔 𝑗 .
+at most (4|K |)ℎ ⌈log 𝑘⌉ and using 3⌈log 𝑘⌉ registers over K, and                              It remains to compute line 6. We do this using the definition of
+that the register program is space 𝑂 (ℎ log |K | + log 𝑘) uniform. By                       𝑞𝑢,𝑖 as stated in Equation 1. Taking the outer sum means storing
+Proposition 1, our space usage will ultimately be                                           three values in [𝑘], for 3⌈log 𝑘⌉ bits in total, plus 𝑂 (log |K |) bits to
+                                                                                            keep track of the total thus far. Each coefficient [𝑓𝑢 (𝛽, 𝛾) = 𝛼] is
+                  𝑂 (ℎ log |K | + log 𝑘 + log 𝑘 · log |K |)                                 directly given in the input to TreeEval and can be addressed using
+                                                                                            𝑂 (log 𝑛) = 𝑂 (ℎ + log 𝑘) bits. We can compute the product one value
+which is 𝑂 ((ℎ + log 𝑘) log log 𝑘) if we choose K to be a field of size
+                                                                                            at a time, using one counter for the index and one field element for
+𝑂 (log 𝑘).
+                                                                                            the product thus far, giving ⌈log 𝑘⌉ and 𝑂 (log |K |) bits, respectively.
+   We build our register program by induction, showing that for ev-
+                                                                                            Lastly, by taking into account the 𝑂 (log |K |) space of computing
+ery node 𝑢 of height 𝑑 ≤ ℎ such a program of length (4|K |)𝑑 ⌈log 𝑘⌉
+                                                                                            operations over K (again by Proposition 2), the total space usage is
+computing 𝑓𝑢 exists. For 𝑑 = 0, i.e. a leaf node, both 𝑃𝑢 and 𝑃𝑢−1 can
+                                                                                            at most 𝑂 (log 𝑘 + ℎ + log |K |).                                        □
+be computed by reading the node’s value directly from the input,
+which gives register programs of length
+                                                                                            5     IMPROVEMENTS AND GENERALIZATIONS
+                                                0                                           For the rest of this paper we will adapt the techniques used to
+                        ⌈log 𝑘⌉ = (4 · |K |) ⌈log 𝑘⌉
+                                                                                            other questions in complexity theory. To do so, we will first state
+since one instruction is needed for each of the ⌈log 𝑘⌉ output regis-                       Lemma 9, which is our main subroutine, in a more general and
+ters.                                                                                       efficient form.
+   Now for a node 𝑢 at height 𝑑 + 1, we will inductively assume
+we have register programs 𝑃ℓ , 𝑃𝑟 for the children ℓ, 𝑟 of 𝑢, each of                       Lemma 10. Let K be a finite field with a subfield F ⊆ K, let
+length (4 · |K |)𝑑 ⌈log 𝑘⌉ and which use 3⌈log 𝑘⌉ registers. We will                        𝑓 : F 𝑎 → F 𝑏 be a function where 𝑎(|F | − 1) < |K | − 1, and let
+organize our registers into tuples 𝑅ℓ , 𝑅𝑟 , 𝑅𝑢 , where 𝑃ℓ will compute                     𝑃𝑔 be a register program with at least 𝑎 + 𝑏 registers over K which
+𝑓ℓ into 𝑅ℓ and 𝑃𝑟 will compute 𝑓𝑟 into 𝑅𝑟 ; our goal then will be to                        cleanly computes a value 𝑔 ∈ F 𝑎 into registers 𝑅1 . . . 𝑅𝑎 .
+compute 𝑓𝑢 into 𝑃𝑢 .                                                                           Then there exists a register program 𝑃 𝑓 which cleanly computes
+   Assuming |K | −1 > 2⌈log 𝑘⌉, we apply Lemma 9 to 𝑢, inductively                          𝑓 (𝑔) into registers 𝑅𝑎+1 . . . 𝑅𝑎+𝑏 . The length of 𝑃 𝑓 is (|K | −1)(𝑡 (𝑃𝑔 ) +
+giving us a program of length                                                               2𝑎 + 𝑏) where 𝑡 (𝑃𝑔 ) is the length of 𝑃𝑔 , and 𝑃 𝑓 uses the same set of
+                                                                                            registers as 𝑃𝑔 .
+(|K | − 1) · [4 · (4 · |K |)𝑑 ⌈log 𝑘⌉ + 5⌈log 𝑘⌉] ≤ (4 · |K |)𝑑+1 ⌈log 𝑘⌉
+                                                                                               To see Lemma 9 as a special case4 of Lemma 10, take F = F2 ,
+   This completes the recursion. We choose                                                  𝑎 = 2⌈log 𝑘⌉ and 𝑏 = ⌈log 𝑘⌉, and let 𝑔 be the concatenation of the
+                                                                                            values 𝑣 ℓ , 𝑣𝑟 , with 𝑃𝑔 calling 𝑃ℓ then 𝑃𝑟 . Lemma 10 saves some time
+                             K = F2 ⌈log(2⌈log 𝑘⌉+2) ⌉                                      by avoiding the need to call the inverse program 𝑃𝑔−1 .
+which satisfies our two conditions2 : 1) K has size 𝑂 (log 𝑘), ensuring                        The proof is essentially that of Lemma 9, and will appear at the
+efficiency; and 2) |K | − 1 > 2⌈log 𝑘⌉, ensuring correctness.                               end of this section. First, we will use this statement to obtain our
+    It remains only to show that our register program is space                              results in the next two sections.
+𝑂 (ℎ log |K | + log 𝑘) uniform. Recall this means (Definition 2) that                          To get a sense of the utility of this generalization, as a first
+on input (𝑡, 𝑥), we can perform the 𝑡-th step of the program in space                       application we show how to reduce the space used by our TreeEval
+𝑂 (ℎ log |K | + log 𝑘).                                                                     algorithm for storing registers. Our algorithm currently uses space
+    The first task is to figure out what the 𝑡-th instruction is. The reg-                  𝑂 (log 𝑛 · log log 𝑛) both to keep track of time and to store the
+ister program given by Lemma 9 has an outer loop with 𝑚 = |K | − 1                          memory in the registers. We can improve this to logspace for one
+iterations, so the first step is to figure out which iteration the instruc-                 of these two aspects, namely the register memory.
+tion lies within—i.e. the value of 𝑗—and which instruction number                              Theorem 5. Any TreeEval𝑘,ℎ instance can be computed in space
+𝑡 ′ it is within that iteration: 𝑡 = 𝑇 𝑗 + 𝑡 ′ where 𝑇 is the length of                     𝑂 (ℎ log log 𝑘 + log 𝑘).
+each iteration. Then based on 𝑡 ′ we must determine where within
+the iteration the instruction lies; for example, if 𝑡 ′ ≤ 2⌈log 𝑘⌉,                            One consequence of this theorem is that only TreeEval𝑘,ℎ in-
+it’s line 3, with the values of 𝑐 ∈ {ℓ, 𝑟 } and 𝑖 ∈ [⌈log 𝑘⌉] deter-                        stances of essentially maximal height can possibly be used to prove
+mined by 𝑡 ′ . If the instruction lies within one of the recursive calls                    space lower bounds.
+to 𝑃ℓ , 𝑃𝑟 , 𝑃ℓ−1, 𝑃𝑟−1 , then we must figure out where within that re-                     3 Put another way, tracking where we are within the recursive calls requires up to ℎ
+cursive call the instruction lies, and so on. This can all be done                          stack frames, each storing a number 𝑗 ∈ [ | K | − 1] , plus 𝑂 (log 𝑘 ) bits to understand
+                                                                                            which iteration of the loops on lines 2, 5, and 8 we are on if we are not inside a recursive
+                                                                                            call, for a total of 𝑂 (ℎ log | K | + log 𝑘 ) space.
+2 Any other K satisfying these constraints would work: for example, F where 𝑝 is a          4 Strictly speaking, it is not a special case, since Lemma 9 encodes values as bit strings
+                                                                     𝑝
+prime number between 2⌈log 𝑘 ⌉ + 2 and 4⌈log 𝑘 ⌉ + 4.                                       (meaning F = F2 in terms of Lemma 10) but does not require F2 to be a subfield of K .
+
+
+
+
+                                                                                     1273
+Tree Evaluation Is in Space 𝑂 (log 𝑛 · log log 𝑛)                                                                        STOC ’24, June 24–28, 2024, Vancouver, BC, Canada
+
+
+  Theorem 6. Any TreeEval𝑘,ℎ instance with ℎ = 𝑂 (log 𝑘/log log 𝑘)                        By Proposition 1, in total we need space
+can be computed in L.
+                                                                                                  𝑂 (ℎ𝑟𝑠 + log 𝑘) + 𝑂 (𝑠 log 𝑘) = 𝑂 (ℎ𝑟𝑠 + 𝑠 log 𝑘)
+   Another consequence is that if we convert our algorithms into                       In order to use Lemma 10 we require
+layered branching programs (see Section 7) computing TreeEval𝑘,ℎ ,
+we can reduce the width to poly(𝑛) with no asymptotic loss in                                                 2⌈(log 𝑘)/𝑟 ⌉ (2𝑟 − 1) < 2𝑟𝑠 − 1
+length. We will not formally state or prove this result.                               Choosing 𝑟 = ⌈log log 𝑘⌉ gives us
+   The proof of Theorem 5 is similar to that of Theorem 4, except
+that instead of representing elements of [𝑘] in binary, we represent                       2⌈(log 𝑘)/𝑟 ⌉ (2𝑟 − 1) ≤ 4(log 𝑘) 2 /log log 𝑘 < 22 log log 𝑘 − 1
+them as tuples of field elements for some larger field F ⊆ K. The                      and thus choosing 𝑠 = 2 satisfies our condition, resulting in an
+number of registers needed to represent elements of [𝑘] will thus                      algorithm using space
+shrink by a factor of log |F |. Our field K will be polynomially larger
+than before (because the degree of the polynomial interpolated by                                      𝑂 (ℎ𝑟𝑠 + 𝑠 log 𝑘) = 𝑂 (ℎ log log 𝑘 + log 𝑘)                                 □
+Lemma 10 grows with |F |), but since our space usage was 𝑂 ((ℎ +                          The rest of the paper will focus on applications of Lemma 10, as
+log 𝑘) · log |K |), i.e. our space only depends logarithmically on |K |,               it will prove to be stronger and more flexible than Lemma 9 as seen
+this will ultimately not impact our asymptotics.                                       above. To end this section we will prove it, with a proof closely
+                                                                                       mirroring that of Lemma 9.
+    Proof of Theorem 5. Let F = F2𝑟 and K = F2𝑟𝑠 where 𝑟 and 𝑠
+will be determined later. By Proposition 3 we may assume F ⊆ K.                            Proof of Lemma 10. For each 𝑖 = 1 . . . 𝑏 we define a polynomial
+An element of [𝑘] can be represented using ⌈(log 𝑘)/𝑟 ⌉ elements                       𝑝𝑖 (𝑦1 . . . 𝑦𝑎 ) which computes the 𝑖-th coordinate of 𝑓 (𝑦1 . . . 𝑦𝑎 ).
+of F , but our registers will hold values in the larger field K.                       Our inspiration will be the formula
+                                                                                                                          Õ                                   Ö
+    The induction proof, after converting 𝑓𝑢 into polynomials 𝑞𝑢,𝑖 for                                                                                        𝑎
+each 𝑖 ∈ [⌈log 𝑘⌉] as in the proof of Lemma 9, is the same as for The-                         𝑓𝑖 (𝑦1 . . . 𝑦𝑎 ) =                       𝑓𝑖 (𝑧 1 . . . 𝑧𝑎 )         [𝑦ℓ = 𝑧 ℓ ]
+orem 4, except that instead of Lemma 9, we invoke Lemma 10 with                                                      (𝑧 1 ...𝑧𝑎 ) ∈ F𝑎                        ℓ=1
+the two fields F ⊆ K, and with 𝑓𝑢 : F 2⌈ (log 𝑘 )/𝑟 ⌉ → F ⌈ (log 𝑘 )/𝑟 ⌉
+                                                                                       To make this a polynomial, we replace each indicator function
+working with encodings as elements of F instead of binary. Let
+                                                                                       [𝑦ℓ = 𝑧 ℓ ] with the polynomial
+𝑡 (ℎ ′ ) be the length of the program for a node at height ℎ ′ ≤ ℎ. Then
+the two children of a node at height ℎ ′ + 1 can be computed in time                                           𝑞𝑧ℓ (𝑦ℓ ) = 1 − (𝑦ℓ − 𝑧 ℓ ) | F | −1
+2𝑡 (ℎ ′ ), so by Lemma 10,
+                                                                                       𝑞𝑧ℓ (𝑦ℓ ) has degree |F | − 1, and by Fermat’s little theorem we have
+                     𝑡 (ℎ ′ + 1) ≤ 2|K | · 𝑡 (ℎ ′ ) + poly(𝑘)                          𝑞𝑧ℓ (𝑦ℓ ) = [𝑦ℓ = 𝑧 ℓ ] for any 𝑦ℓ , 𝑧 ℓ ∈ F . Define
+and thus 𝑡 (ℎ) is at most (2|K |)𝑂 (ℎ) poly(𝑘).                                                                             Õ                                 Ö
+                                                                                                                                                              𝑎
+                                                                                                𝑝𝑖 (𝑦1 . . . 𝑦𝑎 ) =                       𝑓 (𝑧 1 . . . 𝑧𝑎 )          𝑞𝑧ℓ (𝑦ℓ )    (2)
+   Now we are ready to choose F = F2𝑟 and K = F2𝑟𝑠 . Our algo-
+                                                                                                                      (𝑧 1 ...𝑧𝑎 ) ∈ F𝑎                       ℓ=1
+rithm uses 3⌈(log 𝑘)/𝑟 ⌉ registers, each needing 𝑟𝑠 bits to store, for
+a total of                                                                             Thus 𝑝𝑖 is a polynomial of degree 𝑎(|F | − 1).
+                     3⌈(log 𝑘)/𝑟 ⌉ · 𝑟𝑠 = 𝑂 (𝑠 log 𝑘)                                     Now let 𝑚 = |K | − 1 and let 𝜔 be a primitive root of unity of
+                                                                                       order 𝑚 in K. By assumption, 𝑎(|F | − 1) < |K | − 1, so 𝑚 is greater
+space devoted to storing registers. As stated above, the register                      than the degree of the polynomials 𝑝𝑖 . Let 𝜏ℓ ∈ K be the initial
+program has length (2|K |)𝑂 (ℎ) poly(𝑘), and so we need                                value of each register 𝑅ℓ . By Lemma 8,
+                                    
+          log (2 · 2𝑟𝑠 )𝑂 (ℎ) poly(𝑘) = 𝑂 (ℎ𝑟𝑠 + log 𝑘)                                        Õ
+                                                                                               𝑚
+                                                                                                      −1 · 𝑝𝑖 (𝜔 𝑗 𝜏1 + 𝑦1 . . . 𝜔 𝑗 𝜏𝑎 + 𝑦𝑎 ) = 𝑝𝑖 (𝑦1 . . . 𝑦𝑎 )
+space to track our position in the program.                                                     𝑗=1
+   Our register program is space 𝑂 (ℎ log |K | + log 𝑘) = 𝑂 (ℎ𝑟𝑠 +                     This leads to the following algorithm. It replaces the inefficient
+log 𝑘) uniform. Recall (Definition 2) that to show this, we must                       warm-up version presented in the proof of Lemma 9 which required
+show that given (𝑡, 𝑥), we can perform the 𝑡-th instruction on                         an extra 𝑚 copies of 𝑃𝑔−1 .
+input 𝑥 in space 𝑂 (ℎ log |K | + log 𝑘). Similar to the argument in                     1: for 𝑗 = 1 . . . 𝑚 do
+Theorem 4, determining which instruction is the 𝑡-th can be done                        2:     𝑅ℓ ← (𝜔 −1 − 1) −1 · 𝑅ℓ for ℓ = 1 . . . 𝑎
+in space 𝑂 (log 𝑡 (ℎ)) = 𝑂 (ℎ log |K | + log 𝑘). Then, each individual                  3:     𝑃𝑔
+instruction can be computed in space 𝑂 (log |K | + log 𝑘). Looking                      4:     𝑅ℓ ← (1 − 𝜔) · 𝑅ℓ for ℓ = 1 . . . 𝑎
+ahead to the program given in the proof of Lemma 10, lines 2 and                        5:     𝑅𝑎+𝑖 ← 𝑅𝑎+𝑖 + (−1) · 𝑝𝑖 (𝑅1 . . . 𝑅𝑎 ) for 𝑖 = 1 . . . 𝑏
+4 are field arithmetic operations which require 𝑂 (log |K |) space
+(Proposition 2). Line 5 requires evaluating the polynomial 𝑝𝑖 , which,                 We may assume 𝑚 > 1 (otherwise 𝑝𝑖 has degree 0, so is a constant),
+                                                                                       so 𝜔 ≠ 1 and (𝜔 −1 − 1) −1 exists and can be used on line 2.
+examining Equation 2, can be done by looping over all 𝑘 𝑂 (1) values
+                                                                                          To analyse this algorithm, define 𝜏ℓ′ = 𝜏ℓ − 𝑔ℓ for ℓ = 1 . . . 𝑎. At
+of (𝑧 1 . . . 𝑧𝑎 ) in the sum, all 𝑎 = 𝑂 (log 𝑘) values for ℓ in the product,
+                                                                                       the start of the 𝑗-th iteration of the loop, the following invariants
+and then looping up to |F | − 1 to compute the exponent in 𝑞𝑧ℓ ,
+                                                                                       hold for ℓ ∈ [𝑎], 𝑖 ∈ [𝑏]:
+plus 𝑂 (log |K |) space to do field arithmetic and store intermediate
+results, for a total of 𝑂 (log |K | + log 𝑘) space.                                              𝑅ℓ =𝜔 𝑗 −1𝜏ℓ′ + 𝑔ℓ
+
+
+
+
+                                                                                1274
+STOC ’24, June 24–28, 2024, Vancouver, BC, Canada                                                                                                             James Cook and Ian Mertz
+
+
+                             Õ
+                             𝑗 −1
+                                                   ′                   ′                                 6.2     Space Bounds for TreeEval𝑘,𝑑,ℎ
+          𝑅𝑎+𝑖 =𝜏𝑎+𝑖 +                −1 · 𝑝𝑖 (𝜔 𝑗 𝜏1′ + 𝑔1, . . . , 𝜔 𝑗 𝜏𝑎′ + 𝑔𝑎 )
+                             𝑗 ′ =1
+                                                                                                         Using Lemma 10, we can generalize Theorem 1, and in fact Theo-
+                                                                                                         rem 5, to degrees 𝑑 other than 2:
+It is straightforward to verify this invariant holds after each itera-
+tion. After the last iteration, Lemma 8 tells us that for ℓ ∈ [𝑎], 𝑖 ∈ [𝑏]                                  Theorem 7. Any TreeEval𝑘,𝑑,ℎ instance can be computed in space
+                                                                                                         𝑂 (ℎ log(𝑑 log 𝑘) + 𝑑 log 𝑘).
+               𝑅ℓ =𝜔𝑚 𝜏ℓ′ + 𝑔ℓ
+                 =𝜏ℓ − 𝑔ℓ + 𝑔ℓ = 𝜏ℓ                                                                          Proof. The proof is the same as for Theorem 5 but with 𝑑 inputs
+                         Õ𝑚                                                                              instead of 2. Let F = F2𝑟 and K = F2𝑟𝑠 where 𝑟 and 𝑠 will be
+            𝑅𝑎+𝑖 =𝜏𝑎+𝑖 +     −1 · 𝑝𝑖 (𝜔 𝑗 𝜏1′ + 𝑔1, . . . , 𝜔 𝑗 𝜏𝑎′ + 𝑔𝑎 )                               determined later. As before, we represent elements of [𝑘] as tuples
+                               𝑗=1                                                                       of ⌈(log 𝑘)/𝑟 ⌉ field elements, and consider the function at node
+                   =𝜏𝑎+𝑖 + 𝑝𝑖 (𝑔1 . . . 𝑔𝑎 )                                                             𝑢 as 𝑓𝑢 : F 𝑑 ⌈ (log 𝑘 )/𝑟 ⌉ → F ⌈ (log 𝑘 )/𝑟 ⌉ . Our algorithm uses (𝑑 +
+                                                                                                         1) ⌈(log 𝑘)/𝑟 ⌉ registers, each needing 𝑟𝑠 bits to store, for a total of
+   This register program includes 𝑚 copies of 𝑃𝑔 and has a total
+length of 𝑚(2𝑎 + 𝑏 + 𝑡 (𝑃𝑔 )).                                □                                                           (𝑑 + 1) ⌈(log 𝑘)/𝑟 ⌉ · 𝑟𝑠 = 𝑂 (𝑑𝑠 log 𝑘)
+                                                                                                         space devoted to storing registers. Using Lemma 10, we get a register
+6     APPLICATION 1: THE KRW CONJECTURE                                                                  program of length (𝑑 |K |)𝑂 (ℎ) poly(𝑘) (in this case the program 𝑃𝑔
+      SEPARATES L AND NC1                                                                                in Lemma 10 must evaluate all 𝑑 children, hence the 𝑑 in the base
+We now move on to applications of the statement and proof of                                             of the exponent), and so we need
+Theorem 1. In this section we study its implications in the study of                                                                     
+                                                                                                                 log (𝑑2𝑟𝑠 )𝑂 (ℎ) poly(𝑘) = 𝑂 (ℎ𝑟𝑠 + ℎ log 𝑑 + log 𝑘)
+formula lower bounds.
+                                                                                                         space to track our position in the program. Lastly our program is
+6.1      KRW and TEP
+                                                                                                         𝑂 (ℎ𝑟𝑠 + ℎ log 𝑑 + log 𝑘 + 𝑑 ⌈(log 𝑘)/𝑟 ⌉𝑟 ) = 𝑂 (ℎ𝑟𝑠 + ℎ log 𝑑 + 𝑑 log 𝑘)
+To begin, we formally state the KRW conjecture to fit the discussion
+from Section 1.                                                                                          uniform by the same argument as in Theorem 4 and 5. By Proposi-
+                                                                                                         tion 1, in total we need space
+Conjecture 1 (KRW Conjecture [21]). For a function 𝑓 , let 𝑑𝑒𝑝𝑡ℎ(𝑓 )
+denote the smallest depth of any fan-in two formula computing 𝑓 .                                         𝑂 (ℎ𝑟𝑠 + ℎ log 𝑑 + log 𝑘) + 𝑂 (𝑑𝑠 log 𝑘) + 𝑂 (ℎ𝑟𝑠 + ℎ log 𝑑 + 𝑑 log 𝑘)
+For any functions 𝑔1 : {0, 1}𝑛1 → {0, 1} and 𝑔2 : {0, 1}𝑛2 → {0, 1},                                     =𝑂 (ℎ𝑟𝑠 + ℎ log 𝑑 + 𝑑𝑠 log 𝑘)
+define their composition to be                                                                           In order to use Lemma 10 we require
+𝑔1 ◦𝑔2 (𝑥 1,1 . . . 𝑥𝑛1 ,𝑛2 ) := 𝑔1 (𝑔2 (𝑥 1,1 . . . 𝑥 1,𝑛2 ) . . . 𝑔2 (𝑥𝑛1 ,1 . . . 𝑥𝑛1 ,𝑛2 ))                              𝑑 ⌈(log 𝑘)/𝑟 ⌉ (2𝑟 − 1) < 2𝑟𝑠 − 1                     (3)
+Then for almost all functions 𝑔1, 𝑔2 , it holds that                                                     Let 𝑟 = ⌈log(𝑑 log 𝑘)⌉ and 𝑠 = 2. This will result in an algorithm
+             𝑑𝑒𝑝𝑡ℎ(𝑔1 ◦ 𝑔2 ) ≥ 𝑑𝑒𝑝𝑡ℎ(𝑔1 ) + 𝑑𝑒𝑝𝑡ℎ(𝑔2 ) − 𝑂 (1)                                           using space
+We note that this conjecture can be weakened by increasing the 𝑂 (1)                                           𝑂 (ℎ𝑟𝑠 + ℎ log 𝑑 + 𝑑𝑠 log 𝑘) = 𝑂 (ℎ log(𝑑 log 𝑘) + 𝑑 log 𝑘)
+subtractive term.                                                                                        It remains to show (3), which we do by considering two cases. If
+   To see why this is connected to TreeEval, we need to consider                                         𝑟 ≤ log 𝑘, then for sufficiently large 𝑑 log 𝑘,
+the unbounded fan-in version of TreeEval. A TreeEval𝑘,𝑑,ℎ instance                                       𝑑 ⌈(log 𝑘)/𝑟 ⌉ (2𝑟 −1) ≤ 4(𝑑 log 𝑘) 2 /log(𝑑 log 𝑘) < 2 ⌈2 log(𝑑 log 𝑘 ) ⌉ −1
+is as before, a tree of height ℎ and using alphabet size 𝑘, but now
+each internal node has 𝑑 children rather than 2.                                                         Otherwise (𝑟 > log 𝑘),
+
+Lemma 11. Conjecture 1 implies 𝑑𝑒𝑝𝑡ℎ(TreeEval2,𝑑,ℎ ) = Ω(𝑑ℎ).                                                        𝑑 ⌈(log 𝑘)/𝑟 ⌉ (2𝑟 − 1) ≤𝑑2𝑟 − 1
+                                                                                                                                              =2 ⌈log(𝑑 log 𝑘 ) ⌉+log 𝑑 − 1
+   Proof. For each layer ℓ ∈ [ℎ], pick a random function 𝑓ℓ :
+{0, 1}𝑑 → {0, 1}, and fix each internal TreeEval2,𝑑,ℎ node at height                                                                          ≤22⌈log(𝑑 log 𝑘 ) ⌉ − 1               □
+ℓ to 𝑓ℓ . By a counting argument, each 𝑓ℓ requires formula depth
+Ω(𝑑) with high probability. We apply the KRW Conjecture first                                            6.3     Main Result
+to 𝑔1 = 𝑓1 and 𝑔2 = 𝑓2 , then 𝑔1 = 𝑓1 ◦ 𝑓2 and 𝑔2 = 𝑓3 , and so on                                       The input to TreeEval𝑘,𝑑,ℎ is of length 𝑑 ℎ · 𝑘 𝑑 log 𝑘, and thus The-
+ℎ − 1 times, until we ultimately get that the composition of all                                         orem 7 gives us an algorithm using space 𝑂 (log 𝑛 · log log 𝑛) for
+𝑓ℓ —which is to say, the TreeEval2,𝑑,ℎ instance in question—requires                                     every setting of 𝑘, 𝑑, and ℎ. As with Theorem 6, this also shows
+depth Ω(𝑑ℎ).                                                      □                                      that some parameterizations of TreeEval𝑘,𝑑,ℎ are easy.
+   Since TreeEval𝑘,𝑑,ℎ has input size 𝑛 = 𝑑 ℎ 𝑘 𝑑 log 𝑘, fixing 𝑘 =                                         Theorem 8. Any TreeEval𝑘,𝑑,ℎ instance with 𝑑 ≥ (log 𝑘) Ω (1) can
+2 gives us log 𝑛 = 𝑂 (ℎ log 𝑑 + 𝑑), which implies that Ω(𝑑ℎ) =                                           be computed in L.
+𝜔 (log 𝑛)—and thus TreeEval2,𝑑,ℎ ∉ NC1 , assuming Conjecture 1—
+for the right setting of parameters. We give exact details after estab-                                    Proof. Theorem 7 gives an algorithm for TreeEval𝑘,𝑑,ℎ which
+lishing the other side of Theorem 2, namely the space complexity                                         uses space 𝑂 (ℎ log(𝑑 log 𝑘) + 𝑑 log 𝑘), which for log 𝑘 ≤ 𝑑 𝑂 (1) is at
+of TreeEval2,𝑑,ℎ .                                                                                       most 𝑂 (ℎ log 𝑑 + 𝑑 log 𝑘) = 𝑂 (log(𝑑 ℎ · 𝑘 𝑑 log 𝑘)).                □
+
+
+
+
+                                                                                                  1275
+Tree Evaluation Is in Space 𝑂 (log 𝑛 · log log 𝑛)                                                                   STOC ’24, June 24–28, 2024, Vancouver, BC, Canada
+
+
+  This immediately yields Theorem 2, which we state in a more                      in when this value can be reduced. This corresponds to using the
+quantitative form.                                                                 space needed to store 𝜏 in a non-trivial way during the computation
+                                                                                   of 𝑓 . This view also motivated Potechin [24] to alternately view
+   Theorem 9. Assume Conjecture 1 holds. Then there exists a func-
+                                                                                   catalytic branching programs as amortized branching programs, as
+tion in L which requires formulas of depth Ω(log2 𝑛/log log 𝑛).
+                                                                                   we can think of taking these 𝑚 disjoint branching programs for 𝑓
+   Proof. Let 𝑑 = Θ(log 𝑛) and ℎ = Θ(log 𝑛/log log 𝑛) be such                      and letting them share memory states, i.e. internal nodes, while
+that 𝑑 ℎ · 2𝑑 = 𝑛. Then by Theorem 8 we have TreeEval2,𝑑,ℎ ∈ L,                    still preserving the same disjoint source-sink behavior.
+while Lemma 11 states that TreeEval2,𝑑,ℎ requires depth Ω(𝑑ℎ) =                    7.1.2 Past Results. In addition to characterizing 𝑚-catalytic branch-
+Ω(log2 𝑛/log log 𝑛) as claimed.                               □                    ing programs as amortized branching programs, Potechin [24]
+   Theorem 9 applies to the strongest case of Conjecture 1, but                    showed that, given enough amortization, every function can be
+as stated in the introduction, any weakening which implies that                    computed by branching programs of amortized linear size. Robere
+TreeEval2,𝑑,ℎ requires superlogarithmic formula depth is sufficient,               and Zuiddam [27] studied two different amortized branching pro-
+with the lower bound derived translating to one of equal asymp-                    gram models, with one being catalytic branching programs, and
+totics against L.                                                                  concluded along with [24] that a linear upper bound holds; they
+                                                                                   also improved the amount of amortization needed for functions 𝑓
+7     APPLICATION 2: NEAR-OPTIMAL                                                  that can be represented as low-degree F2 polynomials.
+                                                                                      Later, Cook and Mertz [9] showed the results of [24, 27] can
+      CATALYTIC BRANCHING PROGRAMS
+                                                                                   be captured by clean register programs. As with traditional space,
+Our second contribution outside of TreeEval is to the study of                     clean register programs can utilize this initial memory 𝜏 as the
+catalytic branching programs for computing arbitrary functions.                    setting of its registers at the beginning of the program, with the
+                                                                                   clean condition exactly giving back the pairing between source and
+7.1      Catalytic Branching Programs                                              sink nodes.
+7.1.1 Definitions and Motivation. We have thus far avoided dis-
+cussing any syntactic space-bounded models except in passing.                      Proposition 12. Let 𝑓 : {0, 1}𝑛 → {0, 1} be a function, let F be
+While we assume familiarity on the part of the reader with branch-                 a finite field of characteristic 𝑝. Assume that there exists a register
+ing programs in the usual sense, to understand our second auxiliary                program 𝑃 using 𝑡 instructions—each of which only reads one input
+result we must formally define the model of [15] now.                              bit5 —and 𝑠 registers over F , whose net result is to cleanly compute
+                                                                                   𝑓 into some register. Then 𝑓 can be computed by an 𝑚-catalytic
+Definition 6. Let 𝑛 ∈ N and let 𝑓 : {0, 1}𝑛 → {0, 1} be an arbitrary               branching program of width 𝑚 · 𝑝 and length 𝑡, where 𝑚 = |F |𝑠 /𝑝.
+function. An 𝑚-catalytic branching program is a directed acyclic
+graph 𝐺 with the following properties:                                                 Proof. Each of the |F |𝑠 nodes in a given layer will represent a
+     • There are 𝑚 source nodes and 2𝑚 sink nodes.                                 unique setting to all the registers. We will execute one instruction of
+     • Every non-sink node is labeled with an input variable 𝑥𝑖 for                the register program per layer, querying the input bit corresponding
+       𝑖 ∈ [𝑛], and has two outgoing edges labeled 0 and 1.                        to that instruction.
+     • For every source node 𝑣 there is one sink node labeled with                     Finally, we will consider, for each source and sink node, the
+        (𝑣, 0) and one with (𝑣, 1).                                                corresponding assignment to the designated output register. Find
+                                                                                   a basis {𝑒 1 . . . 𝑒𝑟 } for F considered as a vector space over F𝑝 such
+We say that 𝐺 computes 𝑓 if for every 𝑥 ∈ {0, 1}𝑛 and source node
+                                                                                   that 𝑒 1 is the field element 1 ∈ F . We delete all source nodes except
+𝑣, the path defined by starting at 𝑣 and following the edges labeled
+                                                                                   those whose first coordinate is 0—leaving us with |F |𝑠 /𝑝 source
+by the value of the 𝑥𝑖 labeling each node ends at the sink labeled
+                                                                                   nodes as claimed—and similarly we delete all sink nodes except
+by (𝑣, 𝑓 (𝑥)).
+                                                                                   those whose corresponding assignment to the first coordinate is
+    The size of 𝐺 is the number of nodes in 𝐺. For this paper all
+                                                                                   either 0 or 1. By construction, each source whose assignment is
+branching programs will be layered, meaning all nodes are orga-
+                                                                                   𝜏 will reach the sink node labeled by the same 𝜏, except that if
+nized into groups, called layers, where all edges from layer 𝑖 go to
+                                                                                   𝑓 (𝑥 1, . . . , 𝑥𝑛 ) = 1, then 1 is added to the output register, so that the
+nodes in layer 𝑖 + 1 for all 𝑖. The width of 𝐺 is the largest size of any
+                                                                                   its first coordinate is 1 instead of 0.                                     □
+layer, while the length of 𝐺 is the number of layers.
+   The (logarithm of the) size of an ordinary branching program                       In [24, 27], the amount of amortization required to achieve linear
+                                                                                                          𝑛
+computing 𝑓 non-uniformly corresponds to the space needed to                       upper bounds was 22 in the worst case. Using Proposition 12 plus
+                                                                                                                                                        𝜖𝑛
+compute 𝑓 , as we need only remember where in the program we                       the central TreeEval subroutines of [7, 8], [9] improved this to 22
+currently are. By contrast, the reader should think of the 𝑚-catalytic             for any 𝜖 > 0. This is still the best known result for achieving linear
+branching program model as providing some initial memory 𝜏 in                      amortized braching program size.
+the form of the label of some start node, and the (logarithm of                       We also mention in passing that the 𝑚-catalytic branching pro-
+the) size of the program is the space required to compute 𝑓 while                  grams produced by Proposition 12 can be made into permutation
+remembering this string 𝜏.
+                                                                                   5 This is different from our earlier condition, given by Proposition 1, that each in-
+   Clearly this can be done with 𝑠𝑚 nodes, where 𝑠 is the size of
+                                                                                   struction be computable in small space. In non-uniform models we can compute any
+the smallest branching program for 𝑓 , by simply taking 𝑚 disjoint                 function of the current space in one step, but need to take careful account of the length
+copies of an optimal branching program for 𝑓 ; we are interested                   as the exact number of variable reads.
+
+
+
+
+                                                                            1276
+STOC ’24, June 24–28, 2024, Vancouver, BC, Canada                                                                                                 James Cook and Ian Mertz
+
+
+branching programs—a classic and much more well-studied model—                       Proof of Theorem 3. We analyze three ways to choose 𝑟 and 𝑠
+of the same width and length. In fact they are more restricted,                   to satisfy the precondition of Theorem 10, each corresponding to
+and for example only have one accepting vertex; recently, Hoza,                   one claim of the theorem.6
+Pyne, and Vadhan [19] and Pyne and Vadhan [25] showed a lower
+                                                                                     Constant 𝑠. Let 𝑠 be any integer greater than 1. We consider two
+bound against the read-once version of such programs for infinite
+                                                                                  settings, 𝑠 = 2 and 𝑠 ≥ 3. In the latter case, let
+width. See [9] for more discussion of the connections between these                                                
+models and of how close to read-once our programs can be made.                                              1              1
+                                                                                                   𝑟=          log 𝑛 <         log 𝑛 + 1
+                                                                                                          𝑠 −1           𝑠 −1
+7.2     One-Shot Clean Polynomials                                                Then the length of the program given by Theorem 10 is at most
+Given our connection between register programs and 𝑚-catalytic                           2𝑟𝑠 𝑛(1 + 2/𝑟 + 3/𝑛) ≤ 2𝑠 · 2 (𝑠/(𝑠 −1) ) log 𝑛 · 𝑛 · (1 + 𝑜 (1))
+branching programs, and the fact that Lemma 10 gives us a way
+to cleanly compute arbitrary polynomials, it seems natural to ask                                                     = (2𝑠 + 𝑜 (1))𝑛 (2𝑠 −1)/(𝑠 −1)
+whether our techniques can improve the parameters of computing                    and for 𝑚 we have
+arbitrary functions using 𝑚-catalytic branching programs. This
+will require us to leave behind our strategy of using Lemma 10 in a                                             𝑚 ≤ 2 (𝑛+2𝑟 )𝑠
+recursive way, and instead apply it directly to the whole function 𝑓                                                < 2 (𝑛+2)𝑠 · 𝑛 2𝑠/(𝑠 −1)
+in question.                                                                                1 ∈ (0, 1/2], so 𝑠 = 1 + 1/𝜖. This gives us length at most
+   Using this idea to prove Theorem 3 will be the subject of the rest             Let 𝜖 = 𝑠 −1
+                                                                                  (21+1/𝜖 + 𝑜 (1)) · 𝑛 2+𝜖 = 𝑂 (𝑛 2+𝜖 ) and 𝑚 at most
+of the section; we will prove a more general, fine-grained version.
+                                                                                                      2 (𝑛+2) (1+1/𝜖 ) 𝑛 2(1+𝜖 ) < 2 (1+1/𝜖+𝑜 (1) )𝑛
+   Theorem 10. Let 𝑓 be any function on 𝑛 bits, and let 𝑟, 𝑠 be positive
+integers such that                                                                which gives us the first program of Theorem 3. Note that 𝜖 can be
+                                                                                  made arbitrarily small by increasing 𝑠.
+                         ⌈𝑛/𝑟 ⌉ (2𝑟 − 1) < 2𝑟𝑠 − 1                                   For the second program, we move to the 𝑠 = 2 case. Fix 𝑟 =
+                                                                                  ⌈log 𝑛 − log log 𝑛 + 1⌉ < log 𝑛 − log log 𝑛 + 2. Our length is at most
+Then there exists an 𝑚-catalytic branching program of width 2𝑚 and
+length 2𝑟𝑠 𝑛(1 + 2/𝑟 + 3/𝑛) computing 𝑓 , where 𝑚 ≤ 2 (𝑛+2𝑟 )𝑠 .                            2𝑟𝑠 𝑛(1 + 2/𝑟 + 3/𝑛) ≤ 22(log 𝑛−log log 𝑛+2) 𝑛(1 + 𝑜 (1))
+                                                                                                                                 3 
+                                                                                                                                    𝑛
+   Proof. Let F = F2𝑟 and K = F2𝑟𝑠 . We will group the input into                                                = (16 + 𝑜 (1))
+                                                                                                                                  log2 𝑛
+groups of 𝑟 bits, and encode each group of bits as an element of
+F = F2𝑟 . This grouping and encoding together define a function                   while for 𝑚 we have
+𝑔 : {0, 1}𝑛 → F ⌈𝑛/𝑟 ⌉ , which will play the role of 𝑔 in the statement                                     𝑚 ≤ 22(𝑛+2𝑟 )
+of Lemma 10, with 𝑎 = ⌈𝑛/𝑟 ⌉. The program 𝑃𝑔 (which cleanly
+                                                                                                                < 22(𝑛+2 log 𝑛−2 log log 𝑛+4)
+computes 𝑔) can be implemented as a sequence of 𝑛 instructions,                                                                   
+reading each input once.                                                                                                       𝑛 4
+                                                                                                                = 28 · 22𝑛
+   Applying Lemma 10 gives a register program of length                                                                      log 𝑛
+
+        (|K | − 1)(𝑡 (𝑃𝑔 ) + 2𝑎 + 𝑏) = (2𝑟𝑠 − 1)(𝑛 + 2⌈𝑛/𝑟 ⌉ + 1)                     Constant 𝑟 . Let 𝑟 be any integer greater than 1, and set
+                                                                                                                  
+                                          𝑟𝑠
+                                      < 2 𝑛(1 + 2/𝑟 + 3/𝑛)                                      log 𝑛 − log 𝑟 1           log 𝑛 − log 𝑟 1
+                                                                                          𝑠=                  +      +1 <               + +2
+                                                                                                       𝑟         𝑛              𝑟         𝑛
+which uses                                                                        Thus our length is at most
+                             𝑎 + 𝑏 = ⌈𝑛/𝑟 ⌉ + 1
+                                                                                   2𝑟𝑠 𝑛(1 + 2/𝑟 + 3/𝑛) < 2𝑟 ( (log 𝑛−log 𝑟 )/𝑟 +(1/𝑛)+2) 𝑛(1 + 2/𝑟 + 3/𝑛)
+registers over K. By Proposition 12, this gives us an 𝑚-catalytic                                         𝑛
+                                                                                                        = · 2𝑟 /𝑛 · 22𝑟 · 𝑛 · (1 + 2/𝑟 + 3/𝑛)
+branching program of length 2𝑟𝑠 𝑛(1 + 2/𝑟 + 3/𝑛) and width 2𝑚,                                            𝑟                           
+where                                                                                                                           1 2 2
+                                                                                                        ≤ (1 + 𝑜 (1)) 22𝑟          + 2 𝑛
+                                                                                                                                𝑟 𝑟
+           𝑚 = |K | ⌈𝑛/𝑟 ⌉+1 /2 = (2𝑟𝑠 ) ⌈𝑛/𝑟 ⌉+1 /2 < 2 (𝑛+2𝑟 )𝑠
+                                                                                                                ≤ (1 + 𝑜 (1))22𝑟 𝑛 2
+Finally Lemma 10 requires 𝑎(|F | − 1) < |K | − 1; that is,
+                                                                                  and for the width we get
+                                  𝑟            𝑟𝑠
+                         ⌈𝑛/𝑟 ⌉ (2 − 1) < 2         −1                                                  𝑚 < 2 (𝑛+2𝑟 ) ( (log 𝑛−log 𝑟 )/𝑟 +1/𝑛+2)
+which completes the proof.                                            □                                     ≤ 2 (𝑛 log 𝑛)/𝑟 +𝑛 (2− (log 𝑟 )/𝑟 +𝑜 (1) )
+                                                                                  Setting 𝜖 = 1/𝑟 gives us our third program—𝜖 can be made arbitrar-
+7.3     Main Result                                                               ily small by increasing 𝑟 —which completes the proof.           □
+Theorem 3 will follow by analyzing various parameter regimes                      6 In what follows, all asymptotics (𝑂 ( ), 𝑜 ( ) ) take 𝑛 as the growing variable, with either
+from Theorem 10.                                                                  𝑟 or 𝑠 fixed and the other a function of 𝑛 .
+
+
+
+
+                                                                           1277
+Tree Evaluation Is in Space 𝑂 (log 𝑛 · log log 𝑛)                                                                              STOC ’24, June 24–28, 2024, Vancouver, BC, Canada
+
+
+8     CONCLUSION                                                                                    J. Comput. 50, 1 (2021), 171–210. https://doi.org/10.1137/19M1310153
+                                                                                                [7] James Cook and Ian Mertz. 2020. Catalytic approaches to the tree evaluation prob-
+The most immediate question left open by this work is whether or                                    lem. In Proceedings of the 52nd Annual ACM Symposium on Theory of Computing,
+not TreeEval ∈ L. Both answers are entirely possible, and it is no                                  STOC 2020. ACM, 752–760. https://doi.org/10.1145/3357713.3384316
+                                                                                                [8] James Cook and Ian Mertz. 2021. Encodings and the Tree Evaluation Problem.
+longer clear why one should be wholly convinced of either.                                          Electron. Colloquium Comput. Complex. (2021), 54. https://eccc.weizmann.ac.il/
+   Similarly, we may take the chance to consider what answer we                                     report/2021/054
+might expect on the KRW conjecture. We have stated Theorem 2                                    [9] James Cook and Ian Mertz. 2022. Trading Time and Space in Catalytic Branch-
+                                                                                                    ing Programs. In 37th Computational Complexity Conference, CCC 2022 (LIPIcs,
+about the implications of composition theorems for formulas, but                                    Vol. 234). 8:1–8:21. https://doi.org/10.4230/LIPIcs.CCC.2022.8
+since our main theorem can and should be read as a failure of com-                             [10] Stephen A. Cook, Pierre McKenzie, Dustin Wehr, Mark Braverman, and Rahul
+                                                                                                    Santhanam. 2012. Pebbles and Branching Programs for Tree Evaluation. ACM
+position theorems in the space-bounded case, it is natural, possibly                                Trans. Comput. Theory 3, 2 (2012), 4:1–4:43. https://doi.org/10.1145/2077336.
+more so than before, to also believe that they could fail for formulas                              2077337
+as well. Here one should read the contrapositive of Theorem 2 as                               [11] Don Coppersmith and Edna K. Grossman. 1975. Generators for Certain Alter-
+                                                                                                    nating Groups with Applications to Cryptography. Siam Journal on Applied
+giving a different angle: if one can show that deterministic uniform                                Mathematics 29 (1975), 624–627. https://doi.org/10.1137/0129051
+logspace has formulas of depth 𝑜 (log2 𝑛/log log 𝑛)—barely above                               [12] Samir Datta, Chetan Gupta, Rahul Jain, Vimal Raj Sharma, and Raghunath Tewari.
+                                                                                                    2020. Randomized and Symmetric Catalytic Computation. In CSR (Lecture Notes
+the bound given by Savitch’s Theorem [28] for non-deterministic                                     in Computer Science, Vol. 12159). Springer, 211–223. https://doi.org/10.1007/978-
+non-uniform space—then the KRW conjecture falls in tandem.                                          3-030-50026-9_15
+   There is also a broader question of how to apply our techniques                             [13] Susanna F. de Rezende, Or Meir, Jakob Nordström, Toniann Pitassi, and Robert
+                                                                                                    Robere. 2020. KRW Composition Theorems via Lifting. In FOCS. IEEE, 43–49.
+to other problems in space-bounded complexity. The result of                                        https://doi.org/10.1109/FOCS46700.2020.00013
+Lemma 10, of cleanly and efficiently computing arbitrary poly-                                 [14] Jeff Edmonds, Venkatesh Medabalimi, and Toniann Pitassi. 2018. Hardness of
+nomials, seems to be a heavy hammer, but thus far it has only                                       Function Composition for Semantic Read once Branching Programs. In 33rd Com-
+                                                                                                    putational Complexity Conference, CCC 2018 (LIPIcs, Vol. 102). Schloss Dagstuhl
+found a few nails.                                                                                  - Leibniz-Zentrum für Informatik, 15:1–15:22. https://doi.org/10.4230/LIPICS.
+   Recently, Mertz [23] surveyed a number of techniques for space-                                  ICALP.2016.36
+                                                                                               [15] Vincent Girard, Michal Koucký, and Pierre McKenzie. 2015. Nonuniform catalytic
+bounded complexity, including the use of clean register programs                                    space and the direct sum for space. Electronic Colloquium on Computational
+seen in this and previous papers. The survey posed a host of open                                   Complexity (ECCC) 138 (2015).
+questions of how they can be further strengthened and applied, such                            [16] Mika Göös, Toniann Pitassi, and Thomas Watson. 2018. Deterministic Com-
+                                                                                                    munication vs. Partition Number. SIAM J. Comput. 47, 6 (2018), 2435–2450.
+as showing the power of catalytic computing. To take one example                                    https://doi.org/10.1137/16M1059369
+where our results may be relevant, they conjecture that an optimal                             [17] Chetan Gupta, Rahul Jain, Vimal Raj Sharma, and Raghunath Tewari. 2019. Un-
+improvement to Lemma 9 could also show that catalytic logspace                                      ambiguous Catalytic Computation. In 39th IARCS Annual Conference on Foun-
+                                                                                                    dations of Software Technology and Theoretical Computer Science, FSTTCS 2019
+contains NC2 . However, whether our more modest improvement                                         (LIPIcs, Vol. 150). Schloss Dagstuhl - Leibniz-Zentrum für Informatik, 16:1–16:13.
+in this paper can be useful in making progress on this or any other                                 https://doi.org/10.4230/LIPIcs.FSTTCS.2019.16
+                                                                                               [18] John E. Hopcroft, Wolfgang J. Paul, and Leslie G. Valiant. 1977. On Time Versus
+questions posed remains unknown.                                                                    Space. J. ACM 24, 2 (1977), 332–337. https://doi.org/10.1145/322003.322015
+                                                                                               [19] William Hoza, Edward Pyne, and Salil Vadhan. 2021. Pseudorandom generators
+ACKNOWLEDGMENTS                                                                                     for unbounded-width permutation branching programs. In 12th Innovations in
+                                                                                                    Theoretical Computer Science (ITCS’21) (LIPIcs). https://doi.org/10.4230/LIPIcs.
+The authors would like to thank Robert Robere, Bruno Loff, and                                      ITCS.2021.7
+Manuel Stoeckl for many insightful discussions, as well as Igor                                [20] Kazuo Iwama and Atsuki Nagao. 2019. Read-Once Branching Programs for
+                                                                                                    Tree Evaluation Problems. ACM Trans. Comput. Theory 11, 1 (2019), 5:1–5:12.
+Oliveira, Ninad Rajgopal, Pierre McKenzie, and the reviewers of                                     https://doi.org/10.1145/3282433
+ECCC and STOC for feedback on earlier drafts. The second author                                [21] Mauricio Karchmer, Ran Raz, and Avi Wigderson. 1995. Super-Logarithmic Depth
+received support from the Royal Society University Research Fellow-                                 Lower Bounds Via the Direct Sum in Communication Complexity. Comput.
+                                                                                                    Complex. 5, 3/4 (1995), 191–204. https://doi.org/10.1007/BF01206317
+ship URF\R1\191059 and from the Centre for Discrete Mathematics                                [22] David Liu. 2013. Pebbling Arguments for Tree Evaluation. CoRR abs/1311.0293
+and its Applications (DIMAP) at the University of Warwick.                                          (2013). https://doi.org/10.48550/arXiv.1311.0293
+                                                                                               [23] Ian Mertz. 2023. Reusing Space: Techniques and Open Problems. B.EATCS 141
+                                                                                                    (2023), 57–106.
+REFERENCES                                                                                     [24] Aaron Potechin. 2017. A Note on Amortized Branching Program Complexity. In
+ [1] David A. Mix Barrington. 1989. Bounded-Width Polynomial-Size Branching                         Computational Complexity Conference (LIPIcs, Vol. 79). Schloss Dagstuhl - Leibniz-
+     Programs Recognize Exactly Those Languages in NC1 . J. Comput. Syst. Sci. 38, 1                Zentrum für Informatik, 4:1–4:12. https://doi.org/10.4230/LIPIcs.CCC.2017.4
+     (1989), 150–164. https://doi.org/10.1016/0022-0000(89)90037-8                             [25] Edward Pyne and Salil Vadhan. 2021. Pseudodistributions That Beat All Pseu-
+ [2] Michael Ben-Or and Richard Cleve. 1992. Computing Algebraic Formulas Using                     dorandom Generators (Extended Abstract). In 36th Computational Complex-
+     a Constant Number of Registers. SIAM J. Comput. 21, 1 (1992), 54–58. https:                    ity Conference (CCC’21). Schloss Dagstuhl - Leibniz-Zentrum für Informatik.
+     //doi.org/10.1137/0221006                                                                      https://doi.org/10.4230/LIPIcs.CCC.2021.33
+ [3] Sagar Bisoyi, Krishnamoorthy Dinesh, and Jayalal Sarma. 2022. On pure space               [26] Ran Raz and Pierre McKenzie. 1999. Separation of the Monotone NC Hierarchy.
+     vs catalytic space. Theor. Comput. Sci. 921 (2022), 112–126. https://doi.org/10.               Comb. 19, 3 (1999), 403–435. https://doi.org/10.1007/S004930050062
+     1016/J.TCS.2022.04.005                                                                    [27] Robert Robere and Jeroen Zuiddam. 2021. Amortized Circuit Complexity, Formal
+ [4] Harry Buhrman, Richard Cleve, Michal Koucký, Bruno Loff, and Florian Speelman.                 Complexity Measures, and Catalytic Algorithms. In FOCS. IEEE, 759–769. https:
+     2014. Computing with a full memory: catalytic space. In Symposium on Theory of                 //doi.org/10.1109/FOCS52979.2021.00079
+     Computing, STOC 2014. ACM, 857–866. https://doi.org/10.1145/2591796.2591874               [28] Walter J. Savitch. 1970. Relationships Between Nondeterministic and Deter-
+ [5] Harry Buhrman, Michal Koucký, Bruno Loff, and Florian Speelman. 2018. Cat-                     ministic Tape Complexities. J. Comput. Syst. Sci. 4, 2 (1970), 177–192. https:
+     alytic Space: Non-determinism and Hierarchy. Theory Comput. Syst. 62, 1 (2018),                //doi.org/10.1016/S0022-0000(70)80006-X
+     116–135. https://doi.org/10.1007/S00224-017-9784-7
+ [6] Arkadev Chattopadhyay, Yuval Filmus, Sajin Koroth, Or Meir, and Toniann Pitassi.          Received 12-NOV-2023; accepted 2024-02-11
+     2021. Query-to-Communication Lifting Using Low-Discrepancy Gadgets. SIAM
+
+
+
+
+                                                                                        1278
+
