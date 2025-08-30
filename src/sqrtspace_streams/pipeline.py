@@ -5,6 +5,7 @@ from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, TypedDic
 
 import numpy as np
 from .cache import LRUCache, CheckpointRing
+from .autotune import plan as plan_autotune, plan_defaults
 
 
 class Config(TypedDict, total=False):
@@ -149,7 +150,13 @@ class SqrtSpacePipeline:
             windows = windows[t0:t1]
         # Choose mode
         mode = self.cfg.get("mode", "auto")
-        if mode == "classic" or (mode == "auto" and self._choose_classic(windows)):
+        if mode == "auto":
+            p = plan_autotune({**plan_defaults(self.cfg)}, windows, len(self._stages))
+            # enforce chosen parameters
+            self.cfg["checkpoint_every"] = p["checkpoint_every"]
+            self.cfg["lru_bytes"] = p["lru_bytes"]
+            mode = p["mode"]
+        if mode == "classic":
             return self._evaluate_classic(windows, target, params)
         return self._evaluate_sqrt(windows, target, params)
 
@@ -210,7 +217,7 @@ class SqrtSpacePipeline:
         return np.concatenate(rows, axis=0) if rows else np.empty((0,), dtype=windows.dtype)
 
     def _choose_classic(self, windows: np.ndarray) -> bool:
-        # Heuristic: if windows * per-stage feature sizes likely fits in LRU budget or few windows, use classic
+        # Deprecated by autotune.plan; retained for compatibility
         num = windows.shape[0]
         if num <= 32:
             return True

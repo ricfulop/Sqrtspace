@@ -61,6 +61,7 @@ print(out.shape)
 Knobs:
 - **checkpoint_every (k)**: checkpoint interval (windows). For safety on overlapped windows, choose k ≥ the temporal dependency span implied by window/hop.
 - **lru_bytes**: cap for hot entries held in RAM.
+- **dependency_span**: derived as ceil(window / hop); auto mode ensures k ≥ dependency_span.
 
 ### Metrics
 - CLI prints process RSS and basic I/O counters after execution.
