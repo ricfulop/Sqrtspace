@@ -115,6 +115,20 @@ sqrtspace bench logs --extreme --n 20000000 --win 32768 --hop 4096 --csv results
 LLC_BYTES=33554432 sqrtspace bench logs --extreme --n 20000000 --win 32768 --hop 4096
 ```
 
+### Plotting
+- Time/speedup charts from CSV:
+```bash
+sqrtspace bench logs --csv logs_results.csv
+python bench/plot_bench.py logs_results.csv
+# outputs PNGs in bench_out/
+```
+- Extreme memory/time charts:
+```bash
+sqrtspace bench logs --extreme --n 20000000 --win 32768 --hop 4096 --csv extreme_logs.csv
+python bench/plot_memory.py extreme_logs.csv
+# outputs PNGs in bench_out/
+```
+
 ### Dev
 - Run demo without installing (local): `PYTHONPATH=src python3 -m sqrtspace_streams.cli demo audio`
 - Bench (toy): `PYTHONPATH=src python3 bench/bench_audio.py`
