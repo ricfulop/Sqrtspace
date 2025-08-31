@@ -1,6 +1,6 @@
 ## SqrtSpace Streams
 
-A streaming pipeline engine that lowers peak memory for long-running array/tensor pipelines by recomputing on demand (√t-style), with selective checkpointing, a tiny LRU cache, and an auto-fallback to classic order when memory savings won’t help.
+A streaming pipeline engine that lowers peak memory for long-running array/tensor pipelines by recomputing on demand (√t-style), with selective checkpointing, a tiny LRU cache, and an auto-fallback to classic order when memory savings won’t help.  This is based on the stunning result from https://arxiv.org/abs/2502.17779 
 
 ### Badges
 
