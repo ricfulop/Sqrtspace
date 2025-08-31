@@ -110,6 +110,7 @@ These use cgroup limits (RAM/CPU) and `LLC_BYTES` to mirror constrained OBCs. Cl
 - Run demo without installing (local): `PYTHONPATH=src python3 -m sqrtspace_streams.cli demo audio`
 - Bench (toy): `PYTHONPATH=src python3 bench/bench_audio.py`
 - Tests (example): add your runner, e.g., `pytest` (skeletons included under `tests/`).
+- IDE: install optional dev deps for linting/typing: `pip install -e .[dev]`.
 
 ### Contributing
 - Issues and PRs welcome. Please keep PRs focused and small when possible.

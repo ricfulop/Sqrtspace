@@ -26,6 +26,13 @@ numba = ["numba>=0.57"]
 cupy = ["cupy-cuda12x>=12.0"]
 data = ["pandas>=2.0", "pyarrow>=14.0", "scipy>=1.10", "soundfile>=0.12"]
 bench = ["pyperf>=2.6"]
+dev = [
+  "pytest>=7.0",
+  "matplotlib>=3.7",
+  "ruff>=0.5",
+  "black>=24.0",
+  "mypy>=1.10",
+]
 
 [project.urls]
 Homepage = "https://github.com/"
